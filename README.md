@@ -32,20 +32,24 @@ The subroutine names are prefixed, to indicate the area of functionality.
 
 ## FAQ
 **Q: Can this disassembly be directly recompiled into a new ROM?**
- A: Unfortunately, this is not possible at the current time. A long-term goal of the project is to provide a way to create new DX7 firmware ROMS, using a freely available assembler. 
+
+A: Unfortunately, this is not possible at the current time. A long-term goal of the project is to provide a way to create new DX7 firmware ROMS, using a freely available assembler. 
  This task would involve picking one of the available free-software 6303 assemblers, then amending the source code to its particular requirements. The annotated disassembly was done with understanding, and documenting the source code as the primary goal. As such, it's very likely that collisions exist in the naming of the *local labels*. This issue would need to be resolved. 
 It's quite possible that the original developers used Motorola's 'FreeWare assembler', the source code of which is still available. Any suggestions would be appreciated. At any rate, if anyone was looking to create a new firmware ROM from scratch, this repository would be an invaluable resource.
 
 **Q: What kind of improvements can be made to the ROM? Is it possible to design new, and interesting functionality for the DX7?**
+
 A: The bulk of the DX7's sound synthesis is performed by two proprietary LSI chips: The *YM21290 EGS*, and the *YM21280 OPS*. The fundamental role of the DX7's firmware ROM is to interface with these two chips.
 A common question asked on mailing lists is whether the DX7 could potentially support multitimbrality. Unfortunately, the majority of the sound parameters on these two chips are *'global'.* As far as we know, the OPS chip only has a single register specifying the algorithm, and oscillator sync settings for all voices. The only per-voice setting the EGS chip supports is operator volume. The ability to alter the operator pitch on a per-voice basis would be required for any kind of useful multitimbrality. 
 One potential possibility for expanding the synth's functionality would be creating an operator pitch EG in the software. It's already known that the EGS supports arbitrary frequency values via the *'fixed operator frequency'* settings. The very real possibility exists that there could be timing, and latency issues related to loading the individual operator pitches to the EGS chip, however the possibility is worth investigating.
 If you have a better imagination than I do for what to do with the firmware, feel free to create something new and amazing!
 
 **Q: Why did you use the V1.8 ROM?**
-A: This is simply what I had available. It is also the last *official* ROM shipped with DX7's, and the most commonly encountered in my own experience.
 
-**Q: Why did you do this?**
+A: For no other reason than this is the ROM version that I had available when I began the project. Version 1.8 is also the last *official* ROM from Yamaha to come included in factory units. If someone wanted to reverse-engineer the *Special Edition* ROM, or any other version, this annotated disassembly would make that task much easier. The v1.8, and 'Special Edition' ROMs have different locations for the same subroutines in memory, however the memory map is fundamentally similar. The hardest part of the firmware to reverse-engineer is the voice, and pitch modulation code, which to the best of my understanding is fundamentally similar between these two versions.
+
+**Q: What motivated you to do this?**
+
 A: My initial motivation for this project was to understand how a digital synthesiser is engineered. The Yamaha DX7 has long held a special place in my heart, and my studio. Being nearly entirely digital, it seemed a great starting point. I come from a software-engineering background, so the synth's firmware seemed a good place to begin. I didn't set out to become an obsessive custodian of DX7 minutiae. However I greatly enjoy the idea that I can contribute my own small amount to the collective research, and preservation of this synthesiser's amazing technology. I hope that this work will prove useful for those working to emulate, and preserve the magic of the DX7.
 
 **Q: Are contributions welcome?**
