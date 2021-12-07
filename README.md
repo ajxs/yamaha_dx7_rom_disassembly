@@ -4,11 +4,6 @@ This repository contains an annotated disassembly of the v1.8 Yamaha DX7 Firmwar
 ## Overview
 The DX7 runs on a Hitachi 63B03RP CPU. Among other things, the DX7's firmware is responsible for handling user input, MIDI I/O, and processing the synth's LFO, pitch, and operator amplitude envelopes. This project provides a complete, annotated disassembly of the firmware ROM, with the aim to provide a resource for people researching the functionality of this iconic synthesiser.
 
-### Acknowledgements
-
-I would like to extend a sincere thank you to Jacques Matthiej for his contributions and insights, Ken Shiriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
-
-
 ### Introduction
 The best place to start investigating the firmware is the *reset vector* located at `0xFFFE`. This specifies the location to begin execution upon reset. This points at the `HANDLER_RESET` subroutine. This subroutine is responsible for initialising the synth's peripherals, and the global variables stored in memory. Upon completion, execution falls through to the `MAIN_LOOP` subroutine, from which the synth's core functionality is initiated. The `HANDLER_OCF` function is called periodically on timer interrupts. This is where the synth's periodic functionality is called, such as updating the synth's pitch, and amplitude modulation. The `HANDLER_SCI` subroutine is responsible for handling MIDI input, and output.
 
@@ -59,3 +54,8 @@ A: My initial motivation for this project was to understand how a digital synthe
 
 **Q: Are contributions welcome?**
 A: Absolutely! If you have any suggestions, corrections, or questions, please get in touch!
+
+
+## Acknowledgements
+
+I would like to extend a sincere thank you to Jacques Matthiej for his contributions and insights, Ken Shiriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
