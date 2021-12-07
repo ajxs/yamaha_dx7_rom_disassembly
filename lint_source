@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+
+"""
+Performs a 'linting' of the assembly, ensuring that formatting errors do not make it into
+the final output.
+"""
+
+import getopt
+import re
+import sys
+
+# The input file to be linted.
+INPUT_FILE = None
+
+# Whether to abort the linting process on encountering any error.
+ABORT_ON_ERROR = False
+# The maxmimum length of any line.
+MAX_LENGTH_LINE = 80
+# The maximum length of a label.
+MAX_LENGTH_IDENTIFIER = 36
+
+
+def lint_line(line):
+    """
+    Processes an individual line of source code, checking for formatting errors.
+    """
+
+    # Check the length of a comment line.
+    REGEX_LINE_COMMENT = r"^;.*"
+    if re.match(REGEX_LINE_COMMENT, line):
+        if len(line.rstrip()) > MAX_LENGTH_LINE:
+            return (False, 'Comment line too long')
+
+    # Check the total length of the line.
+    if len(line.rstrip()) > MAX_LENGTH_LINE:
+        return (False, 'Line too long')
+
+    # Check the maximum length of each label.
+    REGEX_LABEL = r"([.\w?]+):"
+    label_match = re.match(REGEX_LABEL, line)
+    if label_match:
+        if len(label_match.group(1)) > MAX_LENGTH_IDENTIFIER:
+            return (False, f"Label '{label_match.group(1)}' too long")
+
+    return (True, None)
+
+
+def lint_file():
+    """
+    Lints the input file.
+    """
+
+    try:
+        with open(INPUT_FILE, 'r') as input_file:
+            # The current line number.
+            line_number = 1
+            # The total number of errors encountered.
+            error_count = 0
+
+            source_lines = input_file.readlines()
+            for source_line in source_lines:
+                (lint_result, lint_error) = lint_line(source_line)
+                if not lint_result:
+                    print(f"Error: '{lint_error}' on line {line_number}", file=sys.stderr)
+                    error_count = error_count + 1
+
+                    if ABORT_ON_ERROR:
+                        exit(1)
+
+                line_number = line_number + 1
+
+            print(f"Found {error_count} errors in total.")
+
+    except FileNotFoundError:
+        print("Error: Unable to open assembler files. Exiting.", file=sys.stderr)
+        exit(1)
+
+
+def print_usage():
+    """Prints script usage to STDOUT."""
+
+    print("Usage: lint_source --input_file <string>")
+
+
+if __name__ == "__main__":
+    try:
+        OPTS, ARGS = getopt.getopt(
+            sys.argv[1:],
+            "h",
+            [
+                "input_file=",
+            ]
+        )
+    except getopt.GetoptError:
+        print_usage()
+        sys.exit(2)
+    for opt, arg in OPTS:
+        if opt == '-h':
+            print_usage()
+            sys.exit()
+        elif opt == "--input_file":
+            INPUT_FILE = arg
+
+    if INPUT_FILE is None:
+        print("No input file provided! Exiting.")
+        exit(1)
+
+    lint_file()
