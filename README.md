@@ -53,9 +53,10 @@ A: For no other reason than this is the ROM version that I had available when I 
 A: My initial motivation for this project was to understand how a digital synthesiser is engineered. The Yamaha DX7 has long held a special place in my heart, and my studio. Being nearly entirely digital, it seemed a great starting point. I come from a software-engineering background, so the synth's firmware seemed a good place to begin. I didn't set out to become an obsessive custodian of DX7 minutiae. However I greatly enjoy the idea that I can contribute my own small amount to the collective research, and preservation of this synthesiser's amazing technology. I hope that this work will prove useful for those working to emulate, and preserve the magic of the DX7.
 
 **Q: Are contributions welcome?**
+
 A: Absolutely! If you have any suggestions, corrections, or questions, please get in touch!
 
 
 ## Acknowledgements
 
-I would like to extend a sincere thank you to Jacques Matthiej for his contributions and insights, Ken Shiriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
+I would like to extend a sincere thank you to Jacques Mattheij for his contributions and insights, Ken Shiriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
