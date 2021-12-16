@@ -5,9 +5,8 @@ This repository contains an annotated disassembly of the v1.8 Yamaha DX7 Firmwar
 The DX7 runs on a Hitachi 63B03RP CPU. Among other things, the DX7's firmware is responsible for handling user input, MIDI I/O, and processing the synth's LFO, pitch, and operator amplitude envelopes. This project provides a complete, annotated disassembly of the firmware ROM, with the aim to provide a resource for people researching the functionality of this iconic synthesiser.
 
 ### Introduction
-The best place to start investigating the firmware is the *reset vector* located at `0xFFFE`. This specifies the location to begin execution upon reset. This points at the `HANDLER_RESET` subroutine. This subroutine is responsible for initialising the synth's peripherals, and the global variables stored in memory. Upon completion, execution falls through to the `MAIN_LOOP` subroutine, from which the synth's core functionality is initiated. The `HANDLER_OCF` function is called periodically on timer interrupts. This is where the synth's periodic functionality is called, such as updating the synth's pitch, and amplitude modulation. The `HANDLER_SCI` subroutine is responsible for handling MIDI input, and output.
+The best place to start investigating the firmware is the *reset vector* located at `0xFFFE`. This specifies the location to begin execution upon reset. This points to the `HANDLER_RESET` subroutine, which is responsible for initialising the synth's peripherals, and the global variables stored in memory. Upon completion, execution falls through to the `MAIN_LOOP` subroutine, from which the synth's core functionality is facilitated. The `HANDLER_OCF` function is called periodically on timer interrupts. This is where the synth's periodic functionality is called, such as updating the synth's pitch, and amplitude modulation. The `HANDLER_SCI` subroutine is responsible for handling MIDI input, and output.
 
-A memory map of the synthesiser's peripherals, and its variables in memory are provided in the definitions at the start of the assembly listing.
 
 ## Subroutine Prefixes
 The subroutine names are prefixed, to indicate the area of functionality.
