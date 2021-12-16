@@ -30,6 +30,41 @@ The subroutine names are prefixed, to indicate the area of functionality.
 |VOICE|These subroutines interface with the synth's *voices*. They are responsible for adding, and removing tones from the synth's internal chips.|
 
 
+## Memory Map
+
+|Address|Function|
+|---|----|
+|0x0|Internal Registers|
+|0x1F|External|
+|0x80|RAM (Internal)|
+|0x1000|RAM (External)|
+|0x2800|LCD Data|
+|0x2801|LCD Control|
+|0x2802|Sustain/Portamento Pedals, and LCD Busy Line|
+|0x2803|8255 Peripheral Controller Control Register|
+|0x2804|OPS Mode register|
+|0x2805|OPS Algorithm/Feedback register|
+|0x280A|DAC Volume|
+|0x280E|LED1|
+|0x280F|LED2|
+|0x3000|EGS Voice Pitch Buffer|
+|0x3020|EGS Operator Pitch Buffer|
+|0x3030|EGS Operator Detune Buffer|
+|0x3040|EGS Operator EG Rate Buffer|
+|0x3060|EGS Operator EG Level Buffer|
+|0x3080|EGS Operator Level Buffer|
+|0x30E0|EGS Operator Keyboard Scaling Buffer|
+|0x30F0|EGS Amplitude Modulation Register|
+|0x30F1|EGS Voice Event Shift Register|
+|0x30F2|EGS Pitch Mod High Register|
+|0x30F3|EGS Pitch Mod Low Register|
+|0x4000|Cartridge Interface|
+|0x4800|Cartridge EPROM IC2 start|
+|0x5000|Cartridge Memory End|
+|0xC000|ROM Start|
+|0xFFFF|ROM End|
+
+
 ## FAQ
 **Q: Can this disassembly be directly recompiled into a new ROM?**
 
