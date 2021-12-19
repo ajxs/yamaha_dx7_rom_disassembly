@@ -7467,6 +7467,11 @@ BATTERY_CHECK:
 ; which the most-significant byte of the pitch is retrieved. The lower byte
 ; is then created by shifting this value.
 ;
+; The mechanism used in this subroutine is referenced in patent US4554857:
+; "It is known in the art that a frequency number expressed in logarithm can 
+; be obtained by frequently adding data of two low bits of the key code KC to 
+; lower bits (e.g., Japanese Patent Preliminary Publication No. 142397/1980)."
+;
 ; ARGUMENTS:
 ; Registers:
 ; * ACCB: The note number value to get the pitch value of.
