@@ -89,7 +89,7 @@ P_CRT_END:                                equ  $5000
 ; These constants are the 'Control Words' for the Intel 8255 Peripheral
 ; Interface Controller chip. This chip is used in the DX7 to interface with
 ; its various peripherals over the CPU's address bus.
-; When sent to the control register, these constants control the chip's 
+; When sent to the control register, these constants control the chip's
 ; functionality, such as the 'direction' of the PIC's IO ports.
 ; ==============================================================================
 I8255_CONTROL_WORD_5:                     equ  %10001001
@@ -281,8 +281,11 @@ M_MIDI_ACTV_SENS_RX_ENABLE:               equ  $9A
 ; The incoming 'Active Sensing' check counter.
 M_MIDI_ACTV_SENS_RX_CTR:                  equ  $9B
 
-; The computed pitch value of the last-pressed key.
+; The computed frequency value of the last-pressed key.
 ; This is used when adding new voice events.
+; All of the frequency values passed to the EGS' internal registers are stored
+; in logarithmic format, with 1024 units per octave. The key transpose,
+; and pitch EG values are stored in the same format.
 M_KEY_PITCH:                              equ  $9D
 M_KEY_PITCH_LOW:                          equ  $9E
 M_KEY_EVENT_CURRENT:                      equ  $AA
@@ -7460,16 +7463,17 @@ BATTERY_CHECK:
 ;
 ; DESCRIPTION:
 ; This is the main subroutine responsible for converting the key number value
-; shared by the keyboard controller, and MIDI input, to the pitch value used
-; internally by the EGS chip.
+; shared by the keyboard controller, and MIDI input, to the frequency value
+; used internally by the EGS chip. The resulting frequency value is represented
+; in logarithmic format, with 1024 values per octave.
 ;
-; This function uses the note number as an index into a lookup table, from
-; which the most-significant byte of the pitch is retrieved. The lower byte
-; is then created by shifting this value.
+; The conversion works by using the note number as an index into a lookup
+; table, from which the most-significant byte of the pitch is retrieved. The
+; lower byte is then created by shifting this value.
 ;
 ; The mechanism used in this subroutine is referenced in patent US4554857:
-; "It is known in the art that a frequency number expressed in logarithm can 
-; be obtained by frequently adding data of two low bits of the key code KC to 
+; "It is known in the art that a frequency number expressed in logarithm can
+; be obtained by frequently adding data of two low bits of the key code KC to
 ; lower bits (e.g., Japanese Patent Preliminary Publication No. 142397/1980)."
 ;
 ; ARGUMENTS:
@@ -7477,7 +7481,7 @@ BATTERY_CHECK:
 ; * ACCB: The note number value to get the pitch value of.
 ;
 ; MEMORY USED:
-; * 0x9D: The two-byte (14-bit) key pitch value is stored here.
+; * 0x9D: The two-byte (14-bit) key frequency value is stored here.
 ;
 ; ==============================================================================
 
