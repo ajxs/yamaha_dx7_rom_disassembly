@@ -136,6 +136,17 @@ LCD_INSTR_SET_CURSOR_TO_LINE_2:           equ  $C0
 
 
 ; ==============================================================================
+; General Bitmasks.
+; These general bitmask constants are used throughout the ROM.
+; ==============================================================================
+VOICE_STATUS_SUSTAIN:                     equ  1
+VOICE_STATUS_ACTIVE:                      equ  %10
+SCI_RIE_RE_TE:                            equ  %111010
+SCI_RIE_RE_TIE_TE:                        equ  %111110
+KEY_EVENT_ACTIVE:                         equ  %10000000
+
+
+; ==============================================================================
 ; Cartridge Status.
 ; These bitmasked flags indicate the physical status of the synth's cartridge
 ; interface. They are read from the 8255 peripheral controller's IO port C.
