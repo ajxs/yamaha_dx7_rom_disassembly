@@ -94,4 +94,4 @@ If you have a better imagination than I do for what to do with the firmware, fee
 
 ## Acknowledgements
 
-I would like to extend a sincere thank you to Jacques Mattheij for his contributions and insights, Ken Shiriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
+I would like to extend a sincere thank you to Jacques Mattheij for his contributions and insights, Ken Shirriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
