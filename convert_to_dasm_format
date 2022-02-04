@@ -201,8 +201,8 @@ def fix_addressing_mode(input_text):
     used in the DX7 ROM.
     The dasm assembler will use direct addressing where possible, i.e if the address of an
     operand can be expressed in 8 bits. The DX7 ROM uses extended addressing everywhere.
-    This function sets every opcode to use extended addressing unless explicitly stated
-    otherwise.
+    This function fixes every opcode referencing a memory address to use extended
+    addressing unless explicitly stated otherwise.
     Refer to: https://github.com/dasm-assembler/dasm/issues/41 for more information
     on this syntax.
     """
@@ -210,72 +210,18 @@ def fix_addressing_mode(input_text):
     converted_source = input_text
 
     converted_source = re.sub(
-        r"    AND(\w)    M_",
-        lambda match: f"    AND{match.group(1)}.W  M_",
+        r"    (AND|ADD|SUB|LDA|ORA|EOR|STA|CMP)(\w)    M_",
+        lambda match: f"    {match.group(1)}{match.group(2)}.W  M_",
         converted_source,
         flags=re.MULTILINE
     )
 
     converted_source = re.sub(
-        r"    ADD(\w)    M_",
-        lambda match: f"    ADD{match.group(1)}.W  M_",
+        r"    (ASL|CLR|COM|DEC|INC|LDD|LDX|ROL|ROR|STD|TST)(\w)    M_",
+        lambda match: f"    {match.group(1)}.W  M_",
         converted_source,
         flags=re.MULTILINE
     )
-
-    converted_source = re.sub(
-        r"    SUB(\w)    M_",
-        lambda match: f"    SUB{match.group(1)}.W  M_",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"    LDA(\w)    M_",
-        lambda match: f"    LDA{match.group(1)}.W  M_",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"    ORA(\w)    M_",
-        lambda match: f"    ORA{match.group(1)}.W  M_",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"    EOR(\w)    M_",
-        lambda match: f"    EOR{match.group(1)}.W  M_",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"    STA(\w)    M_",
-        lambda match: f"    STA{match.group(1)}.W  M_",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"    CMP(\w)    M_",
-        lambda match: f"    CMP{match.group(1)}.W  M_",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = converted_source.replace("    ASL     M_", "    ASL.W   M_")
-    converted_source = converted_source.replace("    CLR     M_", "    CLR.W   M_")
-    converted_source = converted_source.replace("    COM     M_", "    COM.W   M_")
-    converted_source = converted_source.replace("    DEC     M_", "    DEC.W   M_")
-    converted_source = converted_source.replace("    INC     M_", "    INC.W   M_")
-    converted_source = converted_source.replace("    LDD     M_", "    LDD.W   M_")
-    converted_source = converted_source.replace("    LDX     M_", "    LDX.W   M_")
-    converted_source = converted_source.replace("    ROL     M_", "    ROL.W   M_")
-    converted_source = converted_source.replace("    ROR     M_", "    ROR.W   M_")
-    converted_source = converted_source.replace("    STD     M_", "    STD.W   M_")
-    converted_source = converted_source.replace("    TST     M_", "    TST.W   M_")
 
     return converted_source
 
@@ -314,7 +260,7 @@ def print_usage():
 
     print(
         """
-        Usage: transform_source
+        Usage: convert_to_dasm_format
         --input_file <string> --output_file <string>
         """
     )
