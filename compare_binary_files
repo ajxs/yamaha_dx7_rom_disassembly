@@ -28,7 +28,7 @@ def compare_binary_files():
         with open(PATH_ORIGINAL, "rb") as file_original, open(PATH_REBUILD, "rb") as file_rebuild:
             contiguous_bytes = 0
             total_equal_bytes = 0
-            start_address = 0
+            start_address = START_ADDR_OFFSET
 
             for i in range(TOTAL_BYTES):
                 # Compare the current byte in both binaries.
@@ -41,11 +41,11 @@ def compare_binary_files():
                     if contiguous_bytes > PRINT_THRESHOLD:
                         print(
                             f"{contiguous_bytes:<7} contiguous bytes at "
-                            f"0x{start_address:04x} to 0x{i:04x}"
+                            f"0x{START_ADDR_OFFSET + start_address:04x} to 0x{START_ADDR_OFFSET + i:04x}"
                         )
 
                     # Reset the current start address, and number of contiguous bytes.
-                    start_address = START_ADDR_OFFSET + i
+                    start_address = i
                     contiguous_bytes = 0
 
             # Print the final contiguous area, if needed.

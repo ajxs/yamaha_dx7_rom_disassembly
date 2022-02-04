@@ -16,10 +16,11 @@ ${DASM_INPUT_ASM}:
 	./convert_to_dasm_format --input_file ${INPUT_ASM} --output_file ${DASM_INPUT_ASM}
 
 ${BIN_OUTPUT}: ${DASM_INPUT_ASM}
-	dasm ${DASM_INPUT_ASM} -f3 -v4 -o${BIN_OUTPUT} > dasm_verbose_output.txt
+	dasm ${DASM_INPUT_ASM} -f3 -v4 -o${BIN_OUTPUT}
 
 compare: ${BIN_OUTPUT}
 	./compare_binary_files --original ${BIN_ORIGINAL} --rebuild ${BIN_OUTPUT}
 
 clean:
 	rm -f ${BIN_OUTPUT}
+	rm -f ${DASM_INPUT_ASM}
