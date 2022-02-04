@@ -15988,7 +15988,7 @@ UI_MEM_PROTECT_STATE:
     PSHX
 
 ; Print to the end of the second line of the string buffer.
-    LDX     (#M_LCD_BUFFER_LN_2+D)
+    LDX     (#M_LCD_BUFFER_LN_2+$D)
     STX     <M_COPY_DEST_PTR
     PULX
     JMP     LCD_WRITE_BFR_AND_PRINT
