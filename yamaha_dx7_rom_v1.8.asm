@@ -28,9 +28,12 @@ SCI_TRANSMIT:                             equ  $13
 ; ==============================================================================
 ; Peripheral Addresses.
 ; These constants are the addresses of the synth's various peripherals.
-; These are mapped into the CPU's address space via the use of an Intel 8255
-; Peripheral Interface Controller.
+; Decoder IC23 maps the $28xx address range for peripherals into the CPU's address space.
+; Decoder IC24 selects a specific peripheral based on low-order address bits A3-A1.
+; The peripheral can use A0.
 ; ==============================================================================
+
+; These use an Intel 8255 Peripheral Interface Controller, IO Ports A and B
 P_LCD_DATA:                               equ  $2800
 P_LCD_CTRL:                               equ  $2801
 
@@ -58,6 +61,8 @@ P_ACEPT:                                  equ  $280C
 P_LED1:                                   equ  $280E
 P_LED2:                                   equ  $280F
 
+; Address range $30xx is decoded to the EPS chip.
+
 ; The EGS Voice Pitch register. Length: 32.
 P_EGS_VOICE_PITCH:                        equ  $3000
 
@@ -79,6 +84,8 @@ P_EGS_AMP_MOD:                            equ  $30F0
 P_EGS_VOICE_EVENTS:                       equ  $30F1
 P_EGS_PITCH_MOD_HIGH:                     equ  $30F2
 P_EGS_PITCH_MOD_LOW:                      equ  $30F3
+
+; The cartridge address range, decoded by IC63
 P_CRT_START:                              equ  $4000
 P_CRT_START_IC2:                          equ  $4800
 P_CRT_END:                                equ  $5000
