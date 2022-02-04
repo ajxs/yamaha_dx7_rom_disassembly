@@ -18,7 +18,8 @@ ABORT_ON_ERROR = False
 MAX_LENGTH_LINE = 80
 # The maximum length of a label.
 MAX_LENGTH_IDENTIFIER = 36
-
+# The prefix for local labels.
+LOCAL_LABEL_PREFIX = "."
 
 def lint_line(line):
     """
@@ -45,6 +46,27 @@ def lint_line(line):
     return (True, None)
 
 
+def check_for_duplicate_labels(file_text):
+    """
+    Search the source text for duplicate label identifiers.
+    """
+
+    # A map of duplicate labels -> The number of occurences.
+    label_count = {}
+    # The regex to use when searching for all labels.
+    REGEX_LABEL = r"^({}?[\w?]+:)".format(LOCAL_LABEL_PREFIX)
+
+    # Iterate over all labels, adding each to the label count map.
+    all_labels = re.findall(REGEX_LABEL, file_text, flags=re.MULTILINE)
+    for label_name in all_labels:
+        if not label_name in label_count:
+            label_count[label_name] = 1
+        else:
+            label_count[label_name] = label_count[label_name] + 1
+
+    return label_count
+
+
 def lint_file():
     """
     Lints the input file.
@@ -68,6 +90,19 @@ def lint_file():
                         exit(1)
 
                 line_number = line_number + 1
+
+            # 'Rewind' the file stream, and check for duplicate identifiers.
+            input_file.seek(0)
+            source_text = input_file.read()
+            label_count = check_for_duplicate_labels(source_text)
+
+            for label_name in label_count:
+                if label_count[label_name] > 1:
+                    error_count = error_count + 1
+                    print(
+                        f"Error: Duplicate label: '{label_name}' - ",
+                        f"Encountered {label_count[label_name]} times."
+                    )
 
             print(f"Found {error_count} errors in total.")
 
