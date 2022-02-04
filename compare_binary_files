@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+
+"""
+Compares the original, and rebuilt binaries.
+Showing contiguous regions, and the degree of similarity.
+"""
+
+import getopt
+import sys
+
+# Paths to the original, and rebuilt binaries.
+PATH_ORIGINAL = None
+PATH_REBUILD = None
+
+# The total number of bytes in the full binary.
+TOTAL_BYTES = 16384
+# The threshold at which to print a block of contiguous bytes.
+PRINT_THRESHOLD = 10
+# The offset from which to count when printing the contiguous block addresses.
+START_ADDR_OFFSET = 0xC000
+
+def compare_binary_files():
+    """
+    Compares the rebuilt, and original binary files.
+    """
+
+    try:
+        with open(PATH_ORIGINAL, "rb") as file_original, open(PATH_REBUILD, "rb") as file_rebuild:
+            contiguous_bytes = 0
+            total_equal_bytes = 0
+            start_address = 0
+
+            for i in range(TOTAL_BYTES):
+                # Compare the current byte in both binaries.
+                if file_original.read(1) == file_rebuild.read(1):
+                    contiguous_bytes = contiguous_bytes + 1
+                    total_equal_bytes = total_equal_bytes + 1
+                else:
+                    # If the number of contiguous bytes exceeds the reporting threshold, print
+                    # a message to STDOUT.
+                    if contiguous_bytes > PRINT_THRESHOLD:
+                        print(
+                            f"{contiguous_bytes:<7} contiguous bytes at "
+                            f"0x{start_address:04x} to 0x{i:04x}"
+                        )
+
+                    # Reset the current start address, and number of contiguous bytes.
+                    start_address = START_ADDR_OFFSET + i
+                    contiguous_bytes = 0
+
+            # Print the final contiguous area, if needed.
+            if contiguous_bytes > PRINT_THRESHOLD:
+                print(
+                    f"{contiguous_bytes:<7} contiguous bytes starting at "
+                    f"0x{start_address:04x} to 0xFFFF"
+                )
+
+            # Print the similarity of the two binaries.
+            PERCENTAGE_SIMILAR = round(total_equal_bytes / TOTAL_BYTES, 4)
+            print(f"Similarity: {PERCENTAGE_SIMILAR}")
+
+    except FileNotFoundError:
+        print("Error: Unable to open binaries. Exiting.", file=sys.stderr)
+        exit(1)
+
+
+def print_usage():
+    """Prints script usage to STDOUT."""
+
+    print(
+        """
+        Usage: compare_binary_files
+        --original <string> --rebuild <string>
+        """
+    )
+
+
+if __name__ == "__main__":
+    try:
+        OPTS, ARGS = getopt.getopt(
+            sys.argv[1:],
+            "h",
+            [
+                "original=",
+                "rebuild=",
+            ]
+        )
+    except getopt.GetoptError:
+        print_usage()
+        sys.exit(2)
+    for opt, arg in OPTS:
+        if opt == '-h':
+            print_usage()
+            sys.exit()
+        elif opt == "--original":
+            PATH_ORIGINAL = arg
+        elif opt == "--rebuild":
+            PATH_REBUILD = arg
+
+    if PATH_ORIGINAL is None:
+        print("Invalid original file provided! Exiting.")
+        exit(1)
+
+    if PATH_REBUILD is None:
+        print("Invalid rebuilt file provided! Exiting.")
+        exit(1)
+
+    compare_binary_files()
