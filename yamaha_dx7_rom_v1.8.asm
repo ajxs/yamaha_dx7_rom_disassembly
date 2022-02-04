@@ -13306,6 +13306,7 @@ MIDI_LOAD_VOLUME:
 ; This table contains the values used to translate between a MIDI volume
 ; message, and the 3-bit volume setting understood by the DAC's analog
 ; volume control multiplexer circuit.
+; These values are simply 0 through 7 with the bits reversed.
 ; ==============================================================================
 TABLE_MIDI_VOLUME:
     FCB 0, 4, 2, 6, 1, 5, 3
