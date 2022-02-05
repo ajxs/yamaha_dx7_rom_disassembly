@@ -48,6 +48,10 @@ def compare_binary_files():
                     start_address = i
                     contiguous_bytes = 0
 
+            if contiguous_bytes == TOTAL_BYTES:
+                print("Files are identical")
+                return
+
             # Print the final contiguous area, if needed.
             if contiguous_bytes > PRINT_THRESHOLD:
                 print(

@@ -69,36 +69,15 @@ def convert_unsupported_opcodes(input_text):
     converted_source = input_text
 
     converted_source = re.sub(
-        r"OIM\s+(.*), (.*)",
-        lambda match: f"OIMD   {match.group(1)}, {match.group(2)}",
+        r"(AIM|OIM|TIM)\s+(.*), (.*),x",
+        lambda match: f"{match.group(1)}X   {match.group(2)}, {match.group(3)}",
         converted_source,
         flags=re.MULTILINE
     )
 
     converted_source = re.sub(
-        r"AIM\s+(.*), (.*),x",
-        lambda match: f"AIMX   {match.group(1)}, {match.group(2)}",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"AIM\s+(.*), (.*)",
-        lambda match: f"AIMD   {match.group(1)}, {match.group(2)}",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"TIM\s+(.*), (.*),x",
-        lambda match: f"TIMX   {match.group(1)}, {match.group(2)}",
-        converted_source,
-        flags=re.MULTILINE
-    )
-
-    converted_source = re.sub(
-        r"TIM\s+(.*), (.*)",
-        lambda match: f"TIMD   {match.group(1)}, {match.group(2)}",
+        r"(AIM|OIM|TIM)\s+(.*), (.*)",
+        lambda match: f"{match.group(1)}D   {match.group(2)}, {match.group(3)}",
         converted_source,
         flags=re.MULTILINE
     )
@@ -106,9 +85,9 @@ def convert_unsupported_opcodes(input_text):
     return converted_source
 
 
-def convert_directives(input_text):
+def convert_data_directives(input_text):
     """
-    Converts the assembler directives in the source file to the format expected
+    Converts the assembler data directives in the source file to the format expected
     by the dasm assembler.
     """
 
@@ -118,6 +97,20 @@ def convert_directives(input_text):
     converted_source = converted_source.replace("FCC", "DC")
 
     return converted_source
+
+
+def convert_literals_to_dasm_format(input_text):
+    """
+    Converts numeric literals to dasm's supported format.
+    dasm expects literals to be expressed without a trailing quote.
+    """
+
+    return re.sub(
+        r"#'([\w\.\-\=\? ]+)'",
+        lambda match: f"#'{match.group(1)}",
+        input_text,
+        flags=re.MULTILINE
+    )
 
 
 def fix_question_marked_labels(input_text):
@@ -155,24 +148,12 @@ def fix_question_marked_labels(input_text):
 
 def fix_org_directive(input_text):
     """
-    Dasm expects the 'ORG' directive to not be in the first column. This function
-    resolves that.
+    Dasm will not correctly parse directives in the first column. This function indents
+    the 'ORG' directive correctly.
     """
 
     return input_text.replace("ORG $C000", "    ORG $C000")
 
-
-def convert_literals_to_dasm_format(input_text):
-    """
-    Converts numeric literals to dasm's supported format.
-    """
-
-    return re.sub(
-        r"#'([\w\.\-\=\? ]+)'",
-        lambda match: f"#'{match.group(1)}",
-        input_text,
-        flags=re.MULTILINE
-    )
 
 def fix_double_char_literal(input_text):
     """
@@ -197,10 +178,10 @@ def fix_double_char_literal(input_text):
 
 def fix_addressing_mode(input_text):
     """
-    Fixes the addressing mode of instructions used in the dasm assembler to match those
-    used in the DX7 ROM.
+    Fixes the addressing mode of instructions used in the dasm assembler to match the
+    extended addressing mode used in the original DX7 ROM.
     The dasm assembler will use direct addressing where possible, i.e if the address of an
-    operand can be expressed in 8 bits. The DX7 ROM uses extended addressing everywhere.
+    operand can be expressed in 8 bits. The DX7 ROM uses extended addressing in all cases.
     This function fixes every opcode referencing a memory address to use extended
     addressing unless explicitly stated otherwise.
     Refer to: https://github.com/dasm-assembler/dasm/issues/41 for more information
@@ -228,15 +209,14 @@ def fix_addressing_mode(input_text):
 
 def transform_file():
     """
-    Transforms the assembler file produced by the disassembler tool into a format supported
-    by the dasm assembler.
+    Transforms the source assembly file into a format supported by the dasm assembler.
     """
 
     try:
         with open(INPUT_FILE, 'r') as input_file, open(OUTPUT_FILE, 'w+') as output_file:
             input_text = input_file.read()
 
-            converted_source = convert_directives(input_text)
+            converted_source = convert_data_directives(input_text)
             converted_source = fix_question_marked_labels(converted_source)
             converted_source = fix_org_directive(converted_source)
             converted_source = fix_double_char_literal(converted_source)
@@ -255,6 +235,7 @@ def transform_file():
         print("Error: Unable to open assembler files. Exiting.", file=sys.stderr)
         exit(1)
 
+
 def print_usage():
     """Prints script usage to STDOUT."""
 
@@ -264,6 +245,7 @@ def print_usage():
         --input_file <string> --output_file <string>
         """
     )
+
 
 if __name__ == "__main__":
     try:
