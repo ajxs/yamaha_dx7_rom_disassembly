@@ -7,6 +7,12 @@ The DX7 runs on a Hitachi HD63B03RP CPU. Among other things, the DX7's firmware 
 ### Introduction
 The best place to start investigating the firmware is the *reset vector* located at `0xFFFE`. This specifies the location to begin execution upon reset. This points to the `HANDLER_RESET` subroutine, which is responsible for initialising the synth's peripherals, and the global variables stored in memory. Upon completion, execution falls through to the `MAIN_LOOP` subroutine, from which the synth's core functionality is facilitated. The `HANDLER_OCF` function is called periodically on timer interrupts. This is where the synth's periodic functionality is called, such as updating the synth's pitch, and amplitude modulation. The `HANDLER_SCI` subroutine is responsible for handling MIDI input, and output.
 
+## Building the ROM
+The project's `makefile` includes a recipe for building the binary from source using the [dasm](https://dasm-assembler.github.io/ "dasm") assembler. Simply install dasm, and Python 3 if you don't already have it, and run `make` in the source directory.  The script will create an intermediate assembly file in dasm's required format (`dasm_input.asm`) and assemble the binary.
+
+A `make compare` script is provided, which will run a script comparing the newly built binary against the original. This was implemented with the purpose of testing the integrity of the build process. The original ROM binary (`DX7-V1-8.OBJ`) required for this purpose can be obtained at [this](https://dbwbp.com/index.php/9-misc/37-synth-eprom-dumps "this") fantastic site.
+
+**Note:** The script used to convert to dasm's format makes certain assumptions about the source code. It was written with the purpose of rebuilding the original binary from source *identically*. Particularly, it forces extended addressing in load/store instructions to match the encoding of the original binary. If you are modifying the source code this may or may not suit your purposes. If this is the case, edit the `convert_to_dasm_format` script as required. This file contains appropriate documentation, and should be easy to understand. If you have any questions, or concerns please feel free to email me.
 
 ## Subroutine Prefixes
 The subroutine names are prefixed, to indicate the area of functionality.
@@ -65,11 +71,13 @@ The subroutine names are prefixed, to indicate the area of functionality.
 
 
 ## FAQ
-**Q: Can this assembly be directly recompiled into a new ROM?**
+**Q: Can this assembly be directly recompiled into a new ROM binary?**
 
-**A:** Unfortunately, this is not possible at the current time. A long-term goal of the project is to provide a way for developers to modify the firmware source, and assemble it into new DX7 firmware ROMs using a freely available assembler. 
+**A:** ***Yes!*** 
 
-This task would involve finding a suitable assembler which supports the HD6303 instruction set, then amending the source code to its particular requirements. Any suggestions for a suitable assembler would be appreciated. At any rate, if anyone was looking to create a new firmware ROM this repository would be an invaluable resource.
+When this disassembly was originally published it was not possible to assemble the source code back into the original binary. One challenge in doing so was finding a suitable assembler which fully supported the HD6303 instruction set, and amending the source code to its particular requirements. After some research, I've settled on the [dasm](https://dasm-assembler.github.io/ "dasm") assembler. Dasm is open-source, cross-platform, and supports the Motorola 6800 architecture upon which the Hitachi HD6303 is based. It has some issues with HD6303 support, however the developers were kind enough to provide pre-written macros to add support for the 6303's unique instructions.
+
+In order to get the source to build, it's necessary to transform the source assembly's format to match dasm's specifications. This includes addressing the differences in how dasm encodes the source, compared with the original assembler used when building the factory ROM. Of particular note is the difference in addressing modes between the assemblers. With dasm defaulting to *direct addressing* of memory locations when possible, whereas the original ROM uses *extended addressing* in all cases.
 
 **Q: What kind of improvements can be made to the ROM? Is it possible to design new, and interesting functionality for the DX7?**
 
@@ -91,6 +99,9 @@ If you have a better imagination than I do for what to do with the firmware, fee
 
 **A:** Absolutely! If you have any suggestions, corrections, or questions, please [get in touch](https://ajxs.me "get in touch")! Alteratively, feel free to fork the project, and make a pull request to the master branch.
 
+**Q: Why not store the source code in dasm's format, instead of using an intermediate step in the build process?**
+
+**A:** That's a good question. The tools I used for disassembling, and formatting the source code were apparently designed to match the format used by the [Motorola Freeware Assembler](http://stealth316.com/misc/motorola_cross_asm_manual.pdf "Motorola Freeware Assembler"). Every compiler has its particular quirks, however this format seems like a reasonable middle ground between the various 6800/6303 assembly dialects that exist in the wild. Dasm's particular format seems more novel, especially considering macros are required to support the 6303's immediate bitwise instructions (`AIM`, `OIM`, `TIM`), and how it handles arbitrarily specifying addressing modes.
 
 ## Acknowledgements
 
