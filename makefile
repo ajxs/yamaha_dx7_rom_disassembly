@@ -3,7 +3,7 @@
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
-.PHONY: clean compare
+.PHONY: clean compare lint
 
 BIN_OUTPUT     := dx7_rom_rebuild.bin
 BIN_ORIGINAL   := DX7-V1-8.OBJ
@@ -20,6 +20,9 @@ ${BIN_OUTPUT}: ${DASM_INPUT_ASM}
 
 compare: ${BIN_OUTPUT}
 	./compare_binary_files --original ${BIN_ORIGINAL} --rebuild ${BIN_OUTPUT}
+
+lint:
+	./lint_source --input_file ${INPUT_ASM}
 
 clean:
 	rm -f ${BIN_OUTPUT}
