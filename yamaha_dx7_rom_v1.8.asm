@@ -7357,27 +7357,27 @@ _END_JUMP_TO_RELATIVE_OFFSET:
 
 
 ; ==============================================================================
-; PATCH_LOAD_QUANTISE_VALUE
+; PATCH_LOAD_SCALE_VALUE
 ; ==============================================================================
 ; LOCATION: 0xD784
 ;
 ; DESCRIPTION:
-; Quantises a particular patch value from its serialised range of 0-99, to its
+; Scales a particular patch value from its serialised range of 0-99, to its
 ; scaled 16-bit representation. Returning the result in ACCD.
 ; e.g.
-;   Quantise(50) = 33000
-;   Quantise(99) = 65340
+;   Scale(50) = 33000
+;   Scale(99) = 65340
 ;
 ; ARGUMENTS:
 ; Registers:
-; * ACCA: The value to quantise.
+; * ACCA: The value to scale.
 ;
 ; RETURNS:
-; * ACCD: The 16-bit quantised value.
+; * ACCD: The 16-bit scaled value.
 ;
 ; ==============================================================================
 
-PATCH_LOAD_QUANTISE_VALUE:
+PATCH_LOAD_SCALE_VALUE:
     ASLA
     LDAB    #165
     MUL
@@ -8777,12 +8777,12 @@ _LOAD_BREAKPOINT:
 
 _LOAD_DEPTH_LEFT:
     LDAA    9,x
-    JSR     PATCH_LOAD_QUANTISE_VALUE
+    JSR     PATCH_LOAD_SCALE_VALUE
     STAA    <K_DEPTH_LEFT
 
 _LOAD_DEPTH_RIGHT:
     LDAA    10,x
-    JSR     PATCH_LOAD_QUANTISE_VALUE
+    JSR     PATCH_LOAD_SCALE_VALUE
     STAA    <K_DEPTH_RIGHT
 
 ; Load the left curve value into A, and parse.
@@ -10085,23 +10085,23 @@ _WRITE_TO_OPS_REGISTERS:
 
 PATCH_LOAD_LFO:
     LDX     #$2089
-    JSR     PATCH_LOAD_QUANTISE_LFO_SPEED
+    JSR     PATCH_LOAD_SCALE_LFO_SPEED
     STD     M_LFO_PHASE_INCREMENT
 
 _PARSE_LFO_DELAY:
     LDX     #M_PATCH_CURRENT_LFO_DELAY
-    JSR     PATCH_LOAD_QUANTIZE_LFO_DELAY
+    JSR     PATCH_LOAD_SCALE_LFO_DELAY
     STD     M_LFO_DELAY_INCREMENT
 
 _PARSE_LFO_PITCH_MOD_DEPTH:
     LDX     #$208B
     LDAA    0,x
-    JSR     PATCH_LOAD_QUANTISE_VALUE
+    JSR     PATCH_LOAD_SCALE_VALUE
     STAA    M_LFO_PITCH_MOD_DEPTH
 
 _PARSE_LFO_AMP_MOD_DEPTH:
     LDAA    1,x
-    JSR     PATCH_LOAD_QUANTISE_VALUE
+    JSR     PATCH_LOAD_SCALE_VALUE
     STAA    M_LFO_AMP_MOD_DEPTH
 
 _PARSE_LFO_WAVEFORM:
@@ -10258,7 +10258,7 @@ _END_MOD_PROCESS_INPUT_SOURCES:
 
 MOD_CALCULATE_SOURCE_SCALED_INPUT:
     PSHB
-    JSR     PATCH_LOAD_QUANTISE_VALUE
+    JSR     PATCH_LOAD_SCALE_VALUE
     PSHA
     LDAB    0,x
 
@@ -10373,7 +10373,7 @@ _END_MOD_SUM_MOD_SOURCE_EG_BIAS:
 
 
 ; ==============================================================================
-; PATCH_LOAD_QUANTISE_LFO_SPEED
+; PATCH_LOAD_SCALE_LFO_SPEED
 ; ==============================================================================
 ; LOCATION: 0xE28E
 ;
@@ -10382,15 +10382,15 @@ _END_MOD_SUM_MOD_SOURCE_EG_BIAS:
 ; * IX:   A pointer to the LFO speed, in patch memory.
 ;
 ; DESCRIPTION:
-; Parses, and quantises the LFO speed value. This subroutine is called during
+; Parses, and scales the LFO speed value. This subroutine is called during
 ; the loading of patch data.
 ;
 ; RETURNS:
-; * ACCD: The parsed LFO speed value.
+; * ACCD: The scaled LFO speed value.
 ;
 ; ==============================================================================
 
-PATCH_LOAD_QUANTISE_LFO_SPEED:
+PATCH_LOAD_SCALE_LFO_SPEED:
     LDAA    0,x
 
 ; If the LFO speed is set to zero, clamp it to a minimum of '1'. This is
@@ -10400,7 +10400,7 @@ PATCH_LOAD_QUANTISE_LFO_SPEED:
     BRA     _SET_TO_MINIMUM
 
 _LFO_SPEED_NON_ZERO:
-    JSR     PATCH_LOAD_QUANTISE_VALUE
+    JSR     PATCH_LOAD_SCALE_VALUE
     CMPA    #160
 
 ; If the result is less than 160, branch.
@@ -10421,7 +10421,7 @@ _END_PATCH_LOAD_QUANTISE_LFO_SPEED:
 
 
 ; ==============================================================================
-; PATCH_LOAD_QUANTIZE_LFO_DELAY
+; PATCH_LOAD_SCALE_LFO_DELAY
 ; ==============================================================================
 ; LOCATION: 0xE2A9
 ;
@@ -10433,15 +10433,15 @@ _END_PATCH_LOAD_QUANTISE_LFO_SPEED:
 ; * IX:   A pointer to the synth's LFO delay value in patch memory.
 ;
 ; MEMORY USED:
-; * 0xAB:   Scratch register used to compute the quantised value.
-; * 0xAC:   Scratch register used to compute the quantised value.
+; * 0xAB:   Scratch register used to compute the scaled value.
+; * 0xAC:   Scratch register used to compute the scaled value.
 ;
 ; RETURNS:
 ; * ACCD: The parsed LFO delay value.
 ;
 ; ==============================================================================
 
-PATCH_LOAD_QUANTIZE_LFO_DELAY:
+PATCH_LOAD_SCALE_LFO_DELAY:
     LDAA    #99
     SUBA    0,x
     STAA    <$AB
