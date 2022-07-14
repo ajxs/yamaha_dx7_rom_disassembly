@@ -189,13 +189,13 @@ EDITED_PATCH_IN_COMPARE:                  equ  2
 
 
 ; ==============================================================================
-; MIDI Error Status.
+; MIDI Error Codes.
 ; These constants are used to track the status of the MIDI buffers. If an error
 ; condition occurs, these constants will be written to the appropriate memory
 ; location. They are referenced in printing error messages.
 ; ==============================================================================
-MIDI_STATUS_ERROR:                        equ  1
-MIDI_STATUS_BUFFER_FULL:                  equ  2
+MIDI_ERROR_OVERRUN_FRAMING:               equ  1
+MIDI_ERROR_BUFFER_FULL:                   equ  2
 
 
 ; ==============================================================================
@@ -2921,13 +2921,13 @@ _PORTA_RATE_INVALID:
 
 MAIN_CHECK_MIDI_ERROR_FLAG:
     LDAA    <M_MIDI_BUFFER_ERROR_CODE
-    CMPA    #MIDI_STATUS_ERROR
+    CMPA    #MIDI_ERROR_OVERRUN_FRAMING
     BNE     _STATUS_NON_ZERO
     LDX     #aMidiDataError
     BRA     _PRINT_MIDI_ERROR
 
 _STATUS_NON_ZERO:
-    CMPA    #MIDI_STATUS_BUFFER_FULL
+    CMPA    #MIDI_ERROR_BUFFER_FULL
     BNE     _END_MAIN_CHECK_MIDI_ERROR_FLAG
     LDX     #aMidiBufferFull
 
@@ -7195,6 +7195,8 @@ _SETUP_LOOP_2:
     LDAB    <M_KEY_EVENT_CURRENT
 
 ; @TODO: Why does this loop twice?
+; This code also appears in the DX7 SER7 ROM. The equivalent function
+; in the SER7 ROM is located at 0xD186.
 
 _INACTIVE_VOICE_SEARCH_LOOP_2:
     INCB
@@ -11878,9 +11880,10 @@ HANDLER_SCI:
     ASLA
 
 ; Branch if Status[ORFE] is set.
-    BCS     _SET_MIDI_DATA_ERROR
+    BCS     _SET_MIDI_OVERRUN_FRAMING_ERROR
 
 ; Checks if Status[TDRE] is clear.
+; If so the serial interface is ready to transmit new data.
     BMI     _MIDI_TDR_NOT_EMPTY
     RTI
 
@@ -11888,7 +11891,7 @@ _STORE_MIDI_DATA:
     LDAA    #1
     STAA    <M_MIDI_RX_BUFFER_PENDING
 
-; Store received data into RX buffer, and increment pointer.
+; Store received data into the RX buffer, and increment the write pointer.
     LDX     <M_MIDI_RX_BFR_WRITE_PTR
     LDAA    <SCI_RECEIVE
     STAA    0,x
@@ -11899,19 +11902,19 @@ _STORE_MIDI_DATA:
     BNE     _HAS_BUFFER_OVERFLOWED?
     LDX     #M_MIDI_RX_BUFFER
 
-; If the TX write pointer wraps around to the read pointer this indicates
+; If the RX write pointer wraps around to the read pointer this indicates
 ; a MIDI buffer overflow.
 
 _HAS_BUFFER_OVERFLOWED?:
     CPX     <M_MIDI_RX_BFR_READ_PTR
     BNE     _SAVE_WRITE_PTR_AND_EXIT
-    LDAA    #MIDI_STATUS_BUFFER_FULL
+    LDAA    #MIDI_ERROR_BUFFER_FULL
     STAA    <M_MIDI_BUFFER_ERROR_CODE
     BSR     MIDI_RESET_BUFFERS
     JSR     VOICE_DEACTIVATE_ALL
     RTI
 
-; Save incremented MIDI TX buffer write ptr.
+; Save incremented MIDI RX buffer write ptr.
 
 _SAVE_WRITE_PTR_AND_EXIT:
     STX     <M_MIDI_RX_BFR_WRITE_PTR
@@ -11925,7 +11928,7 @@ _MIDI_TDR_NOT_EMPTY:
     STAA    <SCI_TRANSMIT
     INX
 
-; Check whether the read pointer has reached the end of the MIDI RX buffer,
+; Check whether the read pointer has reached the end of the MIDI TX buffer,
 ; if so, the read pointer is reset to the start.
     CPX     #M_MIDI_RX_BUFFER
     BNE     _END_HANDLER_SCI
@@ -11941,8 +11944,8 @@ _TX_BUFFER_EMPTY:
     CLR     M_MIDI_TX_DATA_PRESENT
     RTI
 
-_SET_MIDI_DATA_ERROR:
-    LDAA    #MIDI_STATUS_ERROR
+_SET_MIDI_OVERRUN_FRAMING_ERROR:
+    LDAA    #MIDI_ERROR_OVERRUN_FRAMING
     STAA    <M_MIDI_BUFFER_ERROR_CODE
     BSR     MIDI_RESET_RX_BUFFER
     LDAA    <SCI_RECEIVE
