@@ -3176,20 +3176,20 @@ _HANDLE_ANALOG_INPUT_EVENT:
 ; function is 0x1E.
 ; ==============================================================================
 TABLE_ANALOG_EVENT_HANDLER_OFFSETS:
-    FCB $4F
-    FCB 1                                       ; Jumps to 0xCA09.
-    FCB $15
-    FCB 2                                       ; Jumps to 0xC9D1.
-    FCB $1E
-    FCB 3                                       ; Jumps to 0xC9DC.
-    FCB $2C
-    FCB 4                                       ; Jumps to 0xC9EC.
-    FCB $32
-    FCB 5                                       ; Jumps to 0xC9F4.
-    FCB $38
-    FCB 6                                       ; Jumps to 0xC9FC.
-    FCB $3E
-    FCB 7                                       ; Jumps to 0xCA04.
+    FCB INPUT_ANALOG_SRC_1 - *
+    FCB 1
+    FCB INPUT_ANALOG_SRC_2 - *
+    FCB 2
+    FCB INPUT_ANALOG_SRC_3 - *
+    FCB 3
+    FCB INPUT_ANALOG_SRC_4 - *
+    FCB 4
+    FCB INPUT_ANALOG_SRC_5 - *
+    FCB 5
+    FCB INPUT_ANALOG_SRC_6 - *
+    FCB 6
+    FCB INPUT_ANALOG_SRC_7 - *
+    FCB 7
     FCB 2
     FCB 0                                       ; Jumps to 0xC9CA.
 
@@ -12978,42 +12978,42 @@ _MODE_CHG_2:
 ; ==============================================================================
 
 TABLE_MIDI_CC_HANDLER_OFFSETS:
-    FCB $26
-    FCB 1                                       ; Jumps to 0xEC92.
-    FCB $2C
-    FCB 2                                       ; Jumps to 0xEC9B.
-    FCB $20
-    FCB 3                                       ; Jumps to 0xEC90.
-    FCB $2D
-    FCB 4                                       ; Jumps to 0xEC9F.
+    FCB MIDI_CC_1 - *
+    FCB 1
+    FCB MIDI_CC_2 - *
+    FCB 2
+    FCB MIDI_RESET_AND_PROCESS_INCOMING - *
+    FCB 3
+    FCB MIDI_CC_4 - *
+    FCB 4
     FCB -$8E
     FCB 5                                       ; Jumps to 0xEBE6.
-    FCB $7D
-    FCB 6                                       ; Jumps to 0xECF3.
-    FCB $79
-    FCB 7                                       ; Jumps to 0xECF1.
-    FCB $16
-    FCB 63                                      ; Jumps to 0xEC90.
-    FCB $28
-    FCB 64                                      ; Jumps to 0xECA4.
-    FCB $3D
-    FCB 65                                      ; Jumps to 0xECBB.
-    FCB $10
-    FCB 95                                      ; Jumps to 0xEC90.
-    FCB $83
-    FCB 96                                      ; Jumps to 0xED05.
-    FCB $85
-    FCB 97                                      ; Jumps to 0xED09.
-    FCB $A
-    FCB 122                                     ; Jumps to 0xEC90.
-    FCB $8E
-    FCB 123                                     ; Jumps to 0xED16.
+    FCB MIDI_CC_6 - *
     FCB 6
-    FCB 125                                     ; Jumps to 0xEC90.
-    FCB $3A
-    FCB 126                                     ; Jumps to 0xECC6.
-    FCB $4E
-    FCB 127                                     ; Jumps to 0xECDC.
+    FCB MIDI_CC_7 - *
+    FCB 7
+    FCB MIDI_RESET_AND_PROCESS_INCOMING - *
+    FCB 63
+    FCB MIDI_CC_64 - *
+    FCB 64
+    FCB MIDI_CC_65 - *
+    FCB 65
+    FCB MIDI_RESET_AND_PROCESS_INCOMING - *
+    FCB 95
+    FCB MIDI_CC_96 - *
+    FCB 96
+    FCB MIDI_CC_97 - *
+    FCB 97
+    FCB MIDI_RESET_AND_PROCESS_INCOMING - *
+    FCB 122
+    FCB MIDI_CC_123 - *
+    FCB 123
+    FCB MIDI_RESET_AND_PROCESS_INCOMING - *
+    FCB 125
+    FCB MIDI_CC_126 - *
+    FCB 126
+    FCB MIDI_CC_127 - *
+    FCB 127
 
 MIDI_RESET_AND_PROCESS_INCOMING:
     BRA     _CLEAR_AND_REPEAT
