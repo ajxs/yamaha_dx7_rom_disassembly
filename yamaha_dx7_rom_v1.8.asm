@@ -405,12 +405,21 @@ M_TEST_AD_STAGE_FLAGS:                    equ  $FF
 ; The start address of the synth's external RAM chips.
 M_EXTERNAL_RAM_START:                     equ  $1000
 
+; The address of the 32 internal memory patches
+M_INTERNAL_PATCH_BUFFERS:                 equ  $1000
+
 ; The address of the synth's 'Patch Edit Buffer'.
 ; This is where the currently loaded patch is stored in memory.
 M_PATCH_BUFFER_EDIT:                      equ  $2000
 M_PATCH_BUFFER_EDIT_ALG:                  equ  $2086
+M_PATCH_BUFFER_EDIT_FBCK:                 equ  $2087
+M_PATCH_BUFFER_EDIT_SYNC:                 equ  $2088
+M_PATCH_BUFFER_EDIT_LFO_SPEED:            equ  $2089
 M_PATCH_BUFFER_EDIT_LFO_DELAY:            equ  $208A
+M_PATCH_BUFFER_EDIT_LFO_PITCH_MOD_DEPTH:  equ  $208B
+M_PATCH_BUFFER_EDIT_LFO_AMP_MOD_DEPTH:    equ  $208C
 M_PATCH_BUFFER_EDIT_LFO_SYNC:             equ  $208D
+M_PATCH_BUFFER_EDIT_LFO_WAVEFORM:         equ  $208E
 M_PATCH_BUFFER_EDIT_TRANSPOSE:            equ  $2090
 M_PATCH_BUFFER_EDIT_NAME:                 equ  $2091
 M_PATCH_BUFFER_EDIT_NAME_LAST_CHAR:       equ  $209A
@@ -1177,7 +1186,7 @@ _END_TEST_MAIN_FUNCTIONS_2:
 TEST_STAGE_8_COPY_CRT_TO_RAM:
     LDD     #P_CRT_START
     STD     <M_COPY_DEST_PTR
-    LDD     #M_EXTERNAL_RAM_START
+    LDD     #M_INTERNAL_PATCH_BUFFERS
     STD     <M_COPY_SRC_PTR
     CLR     M_CRT_RW_FLAGS
     JSR     CRT_READ_WRITE_ALL
@@ -5725,7 +5734,7 @@ _TEST_MEM_PROTECT_INT:
 _MEM_PROTECT_OK:
     LDD     #P_CRT_START
     STD     <M_COPY_DEST_PTR
-    LDD     #M_EXTERNAL_RAM_START
+    LDD     #M_INTERNAL_PATCH_BUFFERS
     STD     <M_COPY_SRC_PTR
     TST     M_CRT_SAVE_LOAD_FLAGS
     BMI     _READ_OPERATION
@@ -8056,7 +8065,7 @@ _SYNTH_IS_MONO:
 PATCH_WRITE_TO_INT:
     LDAB    #128
     MUL
-    ADDD    #M_EXTERNAL_RAM_START               ; Falls-through below.
+    ADDD    #M_INTERNAL_PATCH_BUFFERS        ; Falls-through below.
 
 
 ; ==============================================================================
@@ -10044,7 +10053,7 @@ TABLE_PITCH_EG_LEVEL:
 ; ==============================================================================
 
 PATCH_ACTIVATE_ALG_MODE:
-    LDAA    $2087                               ; Feedback level.
+    LDAA    M_PATCH_BUFFER_EDIT_FBCK            ; Feedback level.
 
 ; Load the 'Algorithm' value, shift left 3 bits, and combine with the
 ; 'Feedback' value to create the final bitmask.
@@ -10056,7 +10065,7 @@ PATCH_ACTIVATE_ALG_MODE:
 
 ; Test the patch's 'Oscillator Sync' value, and create the final value
 ; accordingly.
-    TST     $2088
+    TST     M_PATCH_BUFFER_EDIT_SYNC
     BEQ     _PATCH_ACTIVATE_ALG_MODE_SYNC_DISABLED
     LDAB    #48
     BRA     _PATCH_ACTIVATE_ALG_MODE_LOAD_TO_OPS
@@ -10082,7 +10091,7 @@ _PATCH_ACTIVATE_ALG_MODE_LOAD_TO_OPS:
 ; ==============================================================================
 
 PATCH_ACTIVATE_LFO:
-    LDX     #$2089
+    LDX     #M_PATCH_BUFFER_EDIT_LFO_SPEED
     JSR     PATCH_ACTIVATE_SCALE_LFO_SPEED
     STD     M_LFO_PHASE_INCREMENT
 
@@ -10092,7 +10101,7 @@ PATCH_ACTIVATE_LFO:
     STD     M_LFO_DELAY_INCREMENT
 
 ; Parse the LFO Pitch Mod Depth.
-    LDX     #$208B
+    LDX     #M_PATCH_BUFFER_EDIT_LFO_PITCH_MOD_DEPTH
     LDAA    0,x
     JSR     PATCH_ACTIVATE_SCALE_VALUE
     STAA    M_LFO_PITCH_MOD_DEPTH
@@ -13905,7 +13914,7 @@ _SYSEX_BULK_RECEIVE:
     BEQ     _SYSEX_BULK_VALIDATE_CHECKSUM
     PSHA
     LDD     <M_MIDI_SYSEX_RX_COUNT
-    ADDD    #M_EXTERNAL_RAM_START
+    ADDD    #M_INTERNAL_PATCH_BUFFERS
     XGDX
     PULA
 
