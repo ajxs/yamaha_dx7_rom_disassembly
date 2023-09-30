@@ -8347,7 +8347,7 @@ PATCH_LOAD_FROM_INT:
     MUL
 
 ; Falls-through to patch deseralise.
-    ADDD    #M_EXTERNAL_RAM_START
+    ADDD    #M_INTERNAL_PATCH_BUFFERS
 
 
 ; ==============================================================================
