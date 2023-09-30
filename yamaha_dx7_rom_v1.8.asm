@@ -4137,6 +4137,8 @@ _RESET_SUB_FN_FLAG:
 ; ==============================================================================
 ; PATCH_PROGRAM_CHANGE
 ; ==============================================================================
+; LOCATION 0xCC74
+;
 ; DESCRIPTION:
 ; Creates a 'Program Change' event from the last button pushed, while the
 ; synth is in 'Play Mode, and then falls-through to load the associated patch.
@@ -4151,6 +4153,8 @@ PATCH_PROGRAM_CHANGE:
 ; ==============================================================================
 ; PATCH_READ_WRITE
 ; ==============================================================================
+; LOCATION 0xCC77
+;
 ; DESCRIPTION:
 ; This subroutine either reads, or writes a patch from RAM into the current
 ; 'edit' patch buffer, or vice-versa.
@@ -9091,7 +9095,7 @@ TABLE_LOG:
 ;
 ; DESCRIPTION:
 ; Resets all operator levels to 0xFF for all voices, then triggers a 'KEY OFF',
-; and then 'KEY ON' event for all 16 voices.
+; and then 'KEY ON' and then 'KEY OFF' event for all 16 voices.
 ;
 ; ==============================================================================
 
@@ -9112,6 +9116,8 @@ _VOICE_RESET_EGS_OP_LEVEL_LOOP:
 ; The following sequence starts by writing 0x2 to the voice events buffer
 ; to signal a 'KEY OFF' event for voice 0.
 ; The value is decremented, and written again to signal a 'KEY ON' event
+; for voice 0.
+; The value is incremented, and written again to signal a 'KEY OFF' event
 ; for voice 0.
 ; Since the voice number in this register is stored at bits 2-5, the value
 ; is incremented by 4 to increment the voice number.
@@ -9525,7 +9531,7 @@ _PATCH_ACTIVATE_OPERATOR_EG_RATE_LOOP:
     ABX
     STAA    0,x
 
-; Increment operator number.
+; Increment operator pointer.
     INC     $AE
 
 ; Decrement index.
@@ -9725,7 +9731,7 @@ _CALCULATE_FINAL_RATIO_FREQ:
     ANDB    #%11111110
     JMP     _LOAD_OP_PITCH_TO_EGS
 
-; Use the serialised 'Op Freq Coarse' value (0-31) % 3, as an index
+; Use the serialised 'Op Freq Coarse' value (0-31) % 4, as an index
 ; into the fixed frequency lookup table.
 ; Store the resulting frequency value in 0xAD.
 
@@ -10675,6 +10681,8 @@ TABLE_PITCH_BEND:
 ; ==============================================================================
 ; PATCH_ACTIVATE
 ; ==============================================================================
+; LOCATION: 0xE407
+;
 ; DESCRIPTION:
 ; This patch 'activation' subroutine is responsible for loading data from the
 ; patch 'Edit Buffer', parsing it, and loading it into the synth memory, and
@@ -11613,7 +11621,7 @@ _LOAD_PITCH_MOD_TO_EGS:
 
 
 ; ==============================================================================
-; MOD_PITCH_LOAD_MOD_SOURCE
+; MOD_PITCH_SUM_MOD_SOURCE
 ; ==============================================================================
 ; DESCRIPTION:
 ; This function parses the 'modulation factor' for a particular modulation
@@ -13311,6 +13319,7 @@ MIDI_RX_CC_96_97_INC_DEC:
     STAA    M_LAST_PRESSED_BTN
     JSR     BTN_YES_NO
     BRA     MIDI_RX_CC_END
+
 ; ==============================================================================
 ; MIDI_RX_CC_123_ALL_NOTES_OFF
 ; ==============================================================================
@@ -14158,7 +14167,7 @@ str_MidiReceive:     FCC " MIDI RECEIVED", 0
 ; ==============================================================================
 ; UI_PRINT
 ; ==============================================================================
-; LOCATION: 0xF05D
+; LOCATION: 0xF053
 ;
 ; DESCRIPTION:
 ; This subroutine is responsible for printing the synth's main user-interface,
@@ -16588,7 +16597,7 @@ LCD_WRITE_STR_TO_BUFFER:
 ; Exit if an unprintable character is encountered.
     CMPB    #$20                                ; ' '
 
-; Branch if *(IX) is above 0x20 (ASCII space).
+; Branch if *(IX) is 0x20 (ASCII space) or above.
     BCC     _WRITE_CHAR_TO_BUFFER
     RTS
 
