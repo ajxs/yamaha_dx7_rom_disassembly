@@ -2,3 +2,6 @@ dasm_input.asm
 dasm_verbose_output.txt
 *.OBJ
 *.bin
+DX7_v1_8.asm
+DX7_v1_8.h
+yamaha_dx7_rom_v1.8.h

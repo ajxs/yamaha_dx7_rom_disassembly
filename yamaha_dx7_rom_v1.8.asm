@@ -405,12 +405,21 @@ M_TEST_AD_STAGE_FLAGS:                    equ  $FF
 ; The start address of the synth's external RAM chips.
 M_EXTERNAL_RAM_START:                     equ  $1000
 
+; The address of the 32 internal memory patches
+M_INTERNAL_PATCH_BUFFERS:                 equ  $1000
+
 ; The address of the synth's 'Patch Edit Buffer'.
 ; This is where the currently loaded patch is stored in memory.
 M_PATCH_BUFFER_EDIT:                      equ  $2000
 M_PATCH_BUFFER_EDIT_ALG:                  equ  $2086
+M_PATCH_BUFFER_EDIT_FBCK:                 equ  $2087
+M_PATCH_BUFFER_EDIT_SYNC:                 equ  $2088
+M_PATCH_BUFFER_EDIT_LFO_SPEED:            equ  $2089
 M_PATCH_BUFFER_EDIT_LFO_DELAY:            equ  $208A
+M_PATCH_BUFFER_EDIT_LFO_PITCH_MOD_DEPTH:  equ  $208B
+M_PATCH_BUFFER_EDIT_LFO_AMP_MOD_DEPTH:    equ  $208C
 M_PATCH_BUFFER_EDIT_LFO_SYNC:             equ  $208D
+M_PATCH_BUFFER_EDIT_LFO_WAVEFORM:         equ  $208E
 M_PATCH_BUFFER_EDIT_TRANSPOSE:            equ  $2090
 M_PATCH_BUFFER_EDIT_NAME:                 equ  $2091
 M_PATCH_BUFFER_EDIT_NAME_LAST_CHAR:       equ  $209A
@@ -1177,7 +1186,7 @@ _END_TEST_MAIN_FUNCTIONS_2:
 TEST_STAGE_8_COPY_CRT_TO_RAM:
     LDD     #P_CRT_START
     STD     <M_COPY_DEST_PTR
-    LDD     #M_EXTERNAL_RAM_START
+    LDD     #M_INTERNAL_PATCH_BUFFERS
     STD     <M_COPY_SRC_PTR
     CLR     M_CRT_RW_FLAGS
     JSR     CRT_READ_WRITE_ALL
@@ -4137,6 +4146,8 @@ _RESET_SUB_FN_FLAG:
 ; ==============================================================================
 ; PATCH_PROGRAM_CHANGE
 ; ==============================================================================
+; LOCATION 0xCC74
+;
 ; DESCRIPTION:
 ; Creates a 'Program Change' event from the last button pushed, while the
 ; synth is in 'Play Mode, and then falls-through to load the associated patch.
@@ -4151,6 +4162,8 @@ PATCH_PROGRAM_CHANGE:
 ; ==============================================================================
 ; PATCH_READ_WRITE
 ; ==============================================================================
+; LOCATION 0xCC77
+;
 ; DESCRIPTION:
 ; This subroutine either reads, or writes a patch from RAM into the current
 ; 'edit' patch buffer, or vice-versa.
@@ -5721,7 +5734,7 @@ _TEST_MEM_PROTECT_INT:
 _MEM_PROTECT_OK:
     LDD     #P_CRT_START
     STD     <M_COPY_DEST_PTR
-    LDD     #M_EXTERNAL_RAM_START
+    LDD     #M_INTERNAL_PATCH_BUFFERS
     STD     <M_COPY_SRC_PTR
     TST     M_CRT_SAVE_LOAD_FLAGS
     BMI     _READ_OPERATION
@@ -8052,7 +8065,7 @@ _SYNTH_IS_MONO:
 PATCH_WRITE_TO_INT:
     LDAB    #128
     MUL
-    ADDD    #M_EXTERNAL_RAM_START               ; Falls-through below.
+    ADDD    #M_INTERNAL_PATCH_BUFFERS        ; Falls-through below.
 
 
 ; ==============================================================================
@@ -8334,7 +8347,7 @@ PATCH_LOAD_FROM_INT:
     MUL
 
 ; Falls-through to patch deseralise.
-    ADDD    #M_EXTERNAL_RAM_START
+    ADDD    #M_INTERNAL_PATCH_BUFFERS
 
 
 ; ==============================================================================
@@ -9091,7 +9104,7 @@ TABLE_LOG:
 ;
 ; DESCRIPTION:
 ; Resets all operator levels to 0xFF for all voices, then triggers a 'KEY OFF',
-; and then 'KEY ON' event for all 16 voices.
+; and then 'KEY ON' and then 'KEY OFF' event for all 16 voices.
 ;
 ; ==============================================================================
 
@@ -9112,6 +9125,8 @@ _VOICE_RESET_EGS_OP_LEVEL_LOOP:
 ; The following sequence starts by writing 0x2 to the voice events buffer
 ; to signal a 'KEY OFF' event for voice 0.
 ; The value is decremented, and written again to signal a 'KEY ON' event
+; for voice 0.
+; The value is incremented, and written again to signal a 'KEY OFF' event
 ; for voice 0.
 ; Since the voice number in this register is stored at bits 2-5, the value
 ; is incremented by 4 to increment the voice number.
@@ -9525,7 +9540,7 @@ _PATCH_ACTIVATE_OPERATOR_EG_RATE_LOOP:
     ABX
     STAA    0,x
 
-; Increment operator number.
+; Increment operator pointer.
     INC     $AE
 
 ; Decrement index.
@@ -9725,7 +9740,7 @@ _CALCULATE_FINAL_RATIO_FREQ:
     ANDB    #%11111110
     JMP     _LOAD_OP_PITCH_TO_EGS
 
-; Use the serialised 'Op Freq Coarse' value (0-31) % 3, as an index
+; Use the serialised 'Op Freq Coarse' value (0-31) % 4, as an index
 ; into the fixed frequency lookup table.
 ; Store the resulting frequency value in 0xAD.
 
@@ -10038,7 +10053,7 @@ TABLE_PITCH_EG_LEVEL:
 ; ==============================================================================
 
 PATCH_ACTIVATE_ALG_MODE:
-    LDAA    $2087                               ; Feedback level.
+    LDAA    M_PATCH_BUFFER_EDIT_FBCK            ; Feedback level.
 
 ; Load the 'Algorithm' value, shift left 3 bits, and combine with the
 ; 'Feedback' value to create the final bitmask.
@@ -10050,7 +10065,7 @@ PATCH_ACTIVATE_ALG_MODE:
 
 ; Test the patch's 'Oscillator Sync' value, and create the final value
 ; accordingly.
-    TST     $2088
+    TST     M_PATCH_BUFFER_EDIT_SYNC
     BEQ     _PATCH_ACTIVATE_ALG_MODE_SYNC_DISABLED
     LDAB    #48
     BRA     _PATCH_ACTIVATE_ALG_MODE_LOAD_TO_OPS
@@ -10076,7 +10091,7 @@ _PATCH_ACTIVATE_ALG_MODE_LOAD_TO_OPS:
 ; ==============================================================================
 
 PATCH_ACTIVATE_LFO:
-    LDX     #$2089
+    LDX     #M_PATCH_BUFFER_EDIT_LFO_SPEED
     JSR     PATCH_ACTIVATE_SCALE_LFO_SPEED
     STD     M_LFO_PHASE_INCREMENT
 
@@ -10086,7 +10101,7 @@ PATCH_ACTIVATE_LFO:
     STD     M_LFO_DELAY_INCREMENT
 
 ; Parse the LFO Pitch Mod Depth.
-    LDX     #$208B
+    LDX     #M_PATCH_BUFFER_EDIT_LFO_PITCH_MOD_DEPTH
     LDAA    0,x
     JSR     PATCH_ACTIVATE_SCALE_VALUE
     STAA    M_LFO_PITCH_MOD_DEPTH
@@ -10675,6 +10690,8 @@ TABLE_PITCH_BEND:
 ; ==============================================================================
 ; PATCH_ACTIVATE
 ; ==============================================================================
+; LOCATION: 0xE407
+;
 ; DESCRIPTION:
 ; This patch 'activation' subroutine is responsible for loading data from the
 ; patch 'Edit Buffer', parsing it, and loading it into the synth memory, and
@@ -11613,7 +11630,7 @@ _LOAD_PITCH_MOD_TO_EGS:
 
 
 ; ==============================================================================
-; MOD_PITCH_LOAD_MOD_SOURCE
+; MOD_PITCH_SUM_MOD_SOURCE
 ; ==============================================================================
 ; DESCRIPTION:
 ; This function parses the 'modulation factor' for a particular modulation
@@ -13311,6 +13328,7 @@ MIDI_RX_CC_96_97_INC_DEC:
     STAA    M_LAST_PRESSED_BTN
     JSR     BTN_YES_NO
     BRA     MIDI_RX_CC_END
+
 ; ==============================================================================
 ; MIDI_RX_CC_123_ALL_NOTES_OFF
 ; ==============================================================================
@@ -13896,7 +13914,7 @@ _SYSEX_BULK_RECEIVE:
     BEQ     _SYSEX_BULK_VALIDATE_CHECKSUM
     PSHA
     LDD     <M_MIDI_SYSEX_RX_COUNT
-    ADDD    #M_EXTERNAL_RAM_START
+    ADDD    #M_INTERNAL_PATCH_BUFFERS
     XGDX
     PULA
 
@@ -14158,7 +14176,7 @@ str_MidiReceive:     FCC " MIDI RECEIVED", 0
 ; ==============================================================================
 ; UI_PRINT
 ; ==============================================================================
-; LOCATION: 0xF05D
+; LOCATION: 0xF053
 ;
 ; DESCRIPTION:
 ; This subroutine is responsible for printing the synth's main user-interface,
@@ -16588,7 +16606,7 @@ LCD_WRITE_STR_TO_BUFFER:
 ; Exit if an unprintable character is encountered.
     CMPB    #$20                                ; ' '
 
-; Branch if *(IX) is above 0x20 (ASCII space).
+; Branch if *(IX) is 0x20 (ASCII space) or above.
     BCC     _WRITE_CHAR_TO_BUFFER
     RTS
 
