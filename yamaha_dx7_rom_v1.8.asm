@@ -98,7 +98,7 @@ P_CRT_END:                                equ  $5000
 ; These constants are the 'Control Words' for the Intel 8255 Peripheral
 ; Programmable Interface chip. This chip is used to interface with
 ; the DX7's various peripherals over the CPU's address bus.
-; When sent to the control register, these constants control the chip's 
+; When sent to the control register, these constants control the chip's
 ; functionality, such as the 'direction' of the PIC's IO ports.
 ; ==============================================================================
 PPI_CONTROL_WORD_5:                       equ  %10001001
@@ -590,6 +590,8 @@ M_OP_VOLUME:                              equ  $228B
 ; This buffer is temporary storage for a serialised patch, prior to being
 ; written to memory. Length: 128.
 M_PATCH_SERIALISED_TEMP:                  equ  $2291
+
+M_MIDI_SYSEX_DATA_COUNTER:                equ  $2291
 
 ; The synth's 'Master Tune' setting.
 ; This 2-byte value is added to the logarithmic voice frequency values
@@ -1131,7 +1133,7 @@ _TEST_STAGE_3_CHECK_SUSTAIN_PDL:
 ; and proceed to testing the portamento pedal input.
     INCA
     STAA    M_TEST_STAGE_SUB
-    LDX     #str_PushPortama
+    LDX     #str_push_porta
 
 
 ; ==============================================================================
@@ -1165,7 +1167,7 @@ _TEST_IS_PORTA_PEDAL_ACTIVE?:
     LDAB    M_PEDAL_INPUT_STATUS
     BITB    #PEDAL_STATUS_PORTAMENTO_ACTIVE
     BEQ     _END_TEST_MAIN_FUNCTIONS_2
-    LDX     #str_Ok
+    LDX     #str_ok
     BRA     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 _END_TEST_MAIN_FUNCTIONS_2:
@@ -1334,14 +1336,14 @@ TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG:
 
 ; If the AD tests are incomplete, print the message and return.
     PULX
-    LDX     #str_NotComplete
+    LDX     #str_not_complete
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 _TEST_5_COMPLETE:
     CLR     M_TEST_AD_STAGE_FLAGS
     RTS
 
-str_NotComplete:     FCC "NOT COMPLETED !", 0
+str_not_complete:    FCC "NOT COMPLETED !", 0
 
 
 ; ==============================================================================
@@ -1364,7 +1366,7 @@ TEST_PRINT_STAGE_NAME:
     STX     <M_COPY_DEST_PTR
 
 ; This string pointer points to ' TEST '.
-    LDX     #(str_InitVoiceTest+$A)
+    LDX     #(str_init_voice_test+$A)
     JSR     LCD_WRITE_STR_TO_BUFFER
 
 ; Check if this is test stage 2.
@@ -1436,11 +1438,11 @@ TEST_STAGE_1_TONE:
     JSR     VOICE_ADD_CHECK_KEY_EVENT_COUNT
 
 ; Print ROM version.
-    LDX     #str_AdjVr3M1018
+    LDX     #str_adj_mr3
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
-str_AdjVr3M1018:     FCC "ADJ VR3 M1.0-1.8", 0
-str_V1824Oct85T:     FCC " V1.8 24-Oct-85  Test Entry ?", 0
+str_adj_mr3:         FCC "ADJ VR3 M1.0-1.8", 0
+str_test_entry:      FCC " V1.8 24-Oct-85  Test Entry ?", 0
 
 ; ==============================================================================
 ; Initialise Patch Buffer.
@@ -1468,7 +1470,8 @@ PATCH_INIT_VOICE_BUFFER:
     FCB $63, $32, $32, $32, $32
     FCB 0, 8, $23, 0, 0, 0, $31
     FCB $18
-str_InitVoiceTest:   FCC "INIT VOICE TEST ", 0
+
+str_init_voice_test: FCC "INIT VOICE TEST ", 0
 
 
 ; ==============================================================================
@@ -1515,7 +1518,7 @@ _TEST_SWITCHES:
 ; printed to the LCD.
     LDAA    #60
     STAA    M_TEST_STAGE_SUB
-    LDX     #str_ErrorSeeLed
+    LDX     #str_error_see_led
 
 _PRINT_MESSAGE_SEE_LED:
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
@@ -1534,13 +1537,13 @@ _CORRECT_BUTTON_PRESSED:
     JMP     LCD_PRINT_STR_BUFFER
 
 _TEST_SUSTAIN:
-    LDX     #str_PushSustain
+    LDX     #str_push_sustain
     BRA     _PRINT_MESSAGE_SEE_LED
 
-str_ErrorSeeLed:     FCC "ERROR SEE LED", 0
-str_Ok:              FCC " OK", 0
-str_PushSustain:     FCC "push sustain", 0
-str_PushPortama:     FCC "push portamanto", 0
+str_error_see_led:   FCC "ERROR SEE LED", 0
+str_ok:              FCC " OK", 0
+str_push_sustain:    FCC "push sustain", 0
+str_push_porta:      FCC "push portamanto", 0
 
 
 ; ==============================================================================
@@ -1582,7 +1585,7 @@ _IS_CORRECT_KEYPRESS_SEQUENCE?:
     SUBA    #36
     SUBA    M_TEST_STAGE_SUB
     BEQ     _KEY_IS_CORRECT
-    LDX     #str_KbdError
+    LDX     #str_kbd_error
 
 _CLEAR_LCD_LINE_2:
     JSR     LCD_CLR_WRITE_LINE_2_THEN_PRINT
@@ -1592,7 +1595,7 @@ _KEY_IS_CORRECT:
     LDAA    <M_NOTE_VEL
     CMPA    #80
     BLS     _VELOCITY_IS_OK
-    LDX     #str_TouchErr
+    LDX     #str_kbd_touch_err
     BRA     _CLEAR_LCD_LINE_2
 
 _VELOCITY_IS_OK:
@@ -1615,7 +1618,7 @@ _TEST_4_INCOMPLETE:
     JMP     _PRINT_NOTES
 
 _TEST_4_COMPLETE:
-    LDX     #str_KbdOk
+    LDX     #str_kbd_ok
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -1653,9 +1656,10 @@ _PRINT_NOTES:
     ADDB    #24
     JSR     UI_PRINT_MUSICAL_NOTES
     JMP     LCD_PRINT_STR_BUFFER
-str_KbdError:        FCC "KBD ERROR", 0
-str_KbdOk:           FCC "KBD OK", 0
-str_TouchErr:        FCC "TOUCH ERR", 0
+
+str_kbd_error:       FCC "KBD ERROR", 0
+str_kbd_ok:          FCC "KBD OK", 0
+str_kbd_touch_err:   FCC "TOUCH ERR", 0
 
 
 ; ==============================================================================
@@ -1723,9 +1727,9 @@ STR_PTRS_TEST_AD:
     FDB aDataEntry
     FDB aPBend
     FDB aMWheel
-    FDB str_Foot
-    FDB str_Breath
-    FDB str_After
+    FDB str_foot
+    FDB str_breath
+    FDB str_after
 TABLE_TEST_AD:
     FCB 1
     FCB 2
@@ -1755,7 +1759,7 @@ aMWheel:             FCC "M WHEEL", 0
 TEST_STAGE_8_CRT_EEPROM:
     JSR     TEST_CRT_CHECK_INSERTED
     JSR     TEST_CRT_CHECK_MEM_PROTECTION
-    LDX     #str_JustCheck
+    LDX     #str_just_check
     JSR     LCD_CLR_WRITE_LINE_2_THEN_PRINT
     JSR     TEST_STAGE_8_CRT_EEPROM_CLEAR
 
@@ -1778,7 +1782,7 @@ _CLEAR_BYTE_SUCCESS:
     CPX     #P_CRT_END
     BNE     _CRT_RW_TEST_LOOP                   ; If IX < 0x5000, loop.
     JSR     TEST_STAGE_8_CRT_EEPROM_CLEAR
-    LDX     #str_EepromOk
+    LDX     #str_eeprom_ok
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -1882,7 +1886,7 @@ _INCREMENT_POINTER:
     INX
     CPX     #P_CRT_END
     BNE     _CRT_READ_LOOP                      ; If IX < 0x5000, loop.
-    LDX     #str_ReadOk
+    LDX     #str_read_ok
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -1905,7 +1909,7 @@ TEST_STAGE_7_CRT_WRITE:
     BSR     TEST_CRT_WRITE_BYTE
     LDX     #P_CRT_START_IC2
     BSR     TEST_CRT_WRITE_BYTE
-    LDX     #str_WriteOk
+    LDX     #str_write_ok
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -1930,7 +1934,7 @@ TEST_CRT_CHECK_INSERTED:
 
 _PRINT_INSERT_CRT_MSG:
     PULX
-    LDX     #(str_NotReadyIns+$10)
+    LDX     #(str_crt_not_ready+$10)
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -1954,18 +1958,19 @@ TEST_CRT_CHECK_MEM_PROTECTION:
 
 _PRINT_MSG_MEM_PROTECTED:
     PULX
-    LDX     #str_MemoryProte
+    LDX     #str_mem_protected
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
 PRINT_TEST_CRT_ERROR_MSG:
-    LDX     #str_Error
+    LDX     #str_error
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
-str_JustCheck:       FCC "JUST CHECK", 0
-str_EepromOk:        FCC "EEPROM OK ", 0
-str_Error:           FCC " ! ERROR ! ", 0
-str_ReadOk:          FCC "READ OK", 0
-str_WriteOk:         FCC "WRITE OK", 0
+
+str_just_check:      FCC "JUST CHECK", 0
+str_eeprom_ok:       FCC "EEPROM OK ", 0
+str_error:           FCC " ! ERROR ! ", 0
+str_read_ok:         FCC "READ OK", 0
+str_write_ok:        FCC "WRITE OK", 0
 
 
 ; ==============================================================================
@@ -2243,7 +2248,7 @@ TEST_RAM_ADDRESS:
     RTS
 
 _TEST_RAM_FAIL:
-    LDX     #str_ErrorRamIc
+    LDX     #str_error_ram_ic
     JSR     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 ; The following lines pop the return subroutine addresses from the
@@ -2253,7 +2258,7 @@ _TEST_RAM_FAIL:
     PULX
     JMP     TEST_MAIN_LOOP
 
-str_ErrorRamIc:      FCC "ERROR RAM IC", 0
+str_error_ram_ic:    FCC "ERROR RAM IC", 0
 
 
 ; ==============================================================================
@@ -2929,13 +2934,13 @@ MAIN_CHECK_MIDI_ERROR_FLAG:
     LDAA    <M_MIDI_BUFFER_ERROR_CODE
     CMPA    #MIDI_ERROR_OVERRUN_FRAMING
     BNE     _MIDI_ERROR_FLAG_SET
-    LDX     #str_MidiDataErr
+    LDX     #str_midi_data_err
     BRA     _PRINT_MIDI_ERROR
 
 _MIDI_ERROR_FLAG_SET:
     CMPA    #MIDI_ERROR_BUFFER_FULL
     BNE     _END_MAIN_CHECK_MIDI_ERROR_FLAG
-    LDX     #str_MidiBufferF
+    LDX     #str_midi_data_full
 
 _PRINT_MIDI_ERROR:
     JSR     LCD_CLR_WRITE_LINE_2_THEN_PRINT
@@ -3604,7 +3609,7 @@ _PATCH_IN_CRT_MEMORY:
     BRA     _END_PATCH_COMPARE
 
 _PRINT_NOT_READY_MSG:
-    LDX     #str_NotReadyIns
+    LDX     #str_crt_not_ready
     JSR     LCD_WRITE_LINE_1_THEN_PRINT
     BRA     RESTORE_IRQ_STATUS_FROM_STACK
 
@@ -3684,7 +3689,7 @@ CRT_SET_PRINT_NOT_INSERTED:
     CLR     M_MEM_SELECT_UI_MODE
 
 CRT_PRINT_NOT_INSERTED:
-    LDX     #str_NotReadyIns
+    LDX     #str_crt_not_ready
     JMP     LCD_WRITE_LINE_1_THEN_PRINT
 
 _CRT_IS_INSERTED:
@@ -3887,7 +3892,7 @@ _PRINT_EG_COPY:
     JSR     LCD_CLEAR_STR_BUFFER
     LDX     #M_LCD_BUFFER_LN_1
     STX     <M_COPY_DEST_PTR
-    LDX     #str_EgCopyFromO
+    LDX     #str_eg_copy_from_op
     JSR     LCD_WRITE_STR_TO_BUFFER
     LDAA    #5
     SUBA    M_SELECTED_OPERATOR
@@ -3948,9 +3953,10 @@ _CHECK_INT_MEM_PROTECT_STATE:
 
 _PRINT_STORE_MSG:
     JSR     LCD_CLEAR_STR_BUFFER_LINE_2
-    LDX     #str_MemoryStore
+    LDX     #str_memory_store
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
-str_MemoryStore:     FCC " MEMORY STORE", 0
+
+str_memory_store:    FCC " MEMORY STORE", 0
 
 
 ; ==============================================================================
@@ -4301,7 +4307,7 @@ _WRITE_SELECTED_CRT:
 _PATCH_WRITE_TO_CRT:
     LDX     #M_LCD_BUFFER_LN_1
     STX     <M_COPY_DEST_PTR
-    LDX     #str_CartridgeVo
+    LDX     #str_cartridge_voice
     JSR     LCD_WRITE_STR_TO_BUFFER
     JSR     PRINT_MSG_UNDER_WRITING
 
@@ -4327,7 +4333,7 @@ _SERIALISE_PATCH_DATA:
     JMP     _PATCH_READ_WRITE_SUCCESS
 
 _CRT_WRITE_ERR:
-    LDX     #str_WriteError
+    LDX     #str_write_error
     JSR     LCD_CLR_WRITE_LINE_2_THEN_PRINT
     JMP     _END_PATCH_READ_WRITE
 
@@ -4344,7 +4350,7 @@ _CRT_WRITE_ERR:
 
 PRINT_MSG_MEMORY_PROTECTED:
     CLR     M_PATCH_READ_OR_WRITE
-    LDX     #str_MemoryProte
+    LDX     #str_mem_protected
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -4426,9 +4432,10 @@ _CRT_FORMAT_CHECK_LOOP:
 
 
 CRT_FORMAT_CONFLICT:
-    LDX     #str_FormatConfl
+    LDX     #str_format_conflict
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
-str_FormatConfl:     FCC "FORMAT CONFLICT!", 0
+
+str_format_conflict: FCC "FORMAT CONFLICT!", 0
 
 
 ; ==============================================================================
@@ -5470,7 +5477,7 @@ _SET_CONFIRM_FLAG:
 ; Falls-through below to print and return.
 
 MENU_PRINT_MSG_CONFIRMATION:
-    LDX     #str_AreYouSure
+    LDX     #str_are_you_sure
 
 
 MENU_PRINT_LINE_2:
@@ -5576,16 +5583,17 @@ _CRT_FORMAT_LOOP:
     BCS     _CRT_FORMAT_FAIL
     DEC     M_CRT_FORMAT_PATCH_INDEX
     BNE     _CRT_FORMAT_LOOP                    ; If *(0x217A) > 0, loop.
-    LDX     #str_FormattingE
+    LDX     #str_formatting_end
 
 _END_BTN_YES_NO_FN_9_TO_11:
     CLR     M_CRT_SAVE_LOAD_FLAGS
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 _CRT_FORMAT_FAIL:
-    LDX     #str_WriteError
+    LDX     #str_write_error
     BRA     _END_BTN_YES_NO_FN_9_TO_11
-str_FormattingE:     FCC " FORMATTING END ", 0
+
+str_formatting_end:     FCC " FORMATTING END ", 0
 
 
 ; ==============================================================================
@@ -5764,7 +5772,7 @@ _CRT_RW_SLIDER_EVENT:
 ; ==============================================================================
 
 PRINT_MSG_UNDER_WRITING:
-    LDX     #str_UnderWritin
+    LDX     #str_under_writing
     JMP     MENU_PRINT_LINE_2
 
 
@@ -6026,7 +6034,7 @@ _INPUT_CHECK_TEST_BTN_COMBO_32_DOWN:
 _INPUT_CHECK_TEST_BTN_COMBO_PRINT:
     INC     M_TEST_MODE_BUTTON_CHECK
     JSR     LCD_CLEAR_STR_BUFFER
-    LDX     #str_V1824Oct85T
+    LDX     #str_test_entry
     JMP     LCD_WRITE_LINE_1_THEN_PRINT
 
 
@@ -7518,7 +7526,7 @@ BATTERY_CHECK:
     RTS
 
 _PRINT_LOW_BTTRY_MSG:
-    LDX     #str_ChangeBatte
+    LDX     #str_change_battery
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -7636,15 +7644,15 @@ _CRT_READ_WRITE_ALL_END_READ:
 
 _END_CRT_READ_WRITE_ALL:
     STAA    <M_CRT_SAVE_LOAD_FLAGS
-    LDX     #str_Completed
+    LDX     #str_completed
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 _CRT_WRITE_ERROR:
-    LDX     #str_WriteError
+    LDX     #str_write_error
     CLR     M_CRT_SAVE_LOAD_FLAGS
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
-str_Completed:       FCC " COMPLETED", 0
+str_completed:       FCC " COMPLETED", 0
 
 
 ; ==============================================================================
@@ -7778,7 +7786,7 @@ _CRT_WRITE_BYTE_FAILURE:
     SEC
     RTS
 
-str_WriteError:      FCC " WRITE ERROR !", 0
+str_write_error:      FCC " WRITE ERROR !", 0
 
 
 ; ==============================================================================
@@ -8740,7 +8748,7 @@ PATCH_COPY_OPERATOR:
 ; Print the 'to OP' string to the LCD.
     LDX     #$2638                              ; LCD Buffer Line 2 + 9.
     STX     <M_COPY_DEST_PTR
-    LDX     #str_ToOp
+    LDX     #str_to_op
     JSR     LCD_WRITE_STR_TO_BUFFER
     LDAA    M_LAST_PRESSED_BTN
 
@@ -12286,7 +12294,7 @@ MIDI_TX_SYSEX_DUMP_BULK:
     CLR     IO_PORT_2_DATA                      ; Disable IRQ.
     JSR     DELAY
     LDD     #$1000
-    STD     $2291
+    STD     M_MIDI_SYSEX_DATA_COUNTER
     LDD     #M_EXTERNAL_RAM_START
     STD     <$E3
     CLR     $E6
@@ -12318,9 +12326,9 @@ _MIDI_TX_SYSEX_DUMP_BULK_LOOP:
     JSR     MIDI_TX
 
 ; Decrement loop counter.
-    LDD     $2291
+    LDD     M_MIDI_SYSEX_DATA_COUNTER
     SUBD    #1
-    STD     $2291
+    STD     M_MIDI_SYSEX_DATA_COUNTER
     BNE     _MIDI_TX_SYSEX_DUMP_BULK_LOOP
     JMP     MIDI_TX_SYSEX_CHECKSUM
 
@@ -13898,10 +13906,10 @@ _SYSEX_EXIT:
 ; ==============================================================================
 
 MIDI_PRINT_MSG_CHECKSUM_ERR:
-    LDX     #str_CheckSumErr
+    LDX     #str_check_sum_error
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
-str_CheckSumErr:     FCC "CHECK SUM ERROR!", 0
+str_check_sum_error: FCC "CHECK SUM ERROR!", 0
 
 ; If this is a bulk voice data transfer, check whether we've received all of
 ; the incoming data.
@@ -13939,7 +13947,7 @@ _SYSEX_BULK_CHECKSUM_FAILURE:
 
 _SYSEX_BULK_SUCCESS:
     JSR     LCD_CLEAR_STR_BUFFER_LINE_2
-    LDX     #str_MidiReceive
+    LDX     #str_midi_received
     JSR     LCD_CLR_WRITE_LINE_2_THEN_PRINT
     BRA     _SYSEX_EXIT
 
@@ -14170,7 +14178,8 @@ TABLE_SYSEX_FN_DATA_POINTERS:
     FDB M_BRTH_CTRL_ASSIGN_FLAGS
     FDB M_AFTERTOUCH_RANGE
     FDB M_AFTERTOUCH_ASSIGN_FLAGS
-str_MidiReceive:     FCC " MIDI RECEIVED", 0
+
+str_midi_received:   FCC " MIDI RECEIVED", 0
 
 
 ; ==============================================================================
@@ -14273,11 +14282,11 @@ _PRINT_VOICE_SOURCE:
     BNE     _CRT_VOICE
 
 _INT_VOICE:
-    LDX     #str_InternalVoi
+    LDX     #str_internal_voice
     BRA     _PRINT_LCD_LINE_1
 
 _CRT_VOICE:
-    LDX     #str_CartridgeVo
+    LDX     #str_cartridge_voice
 
 _PRINT_LCD_LINE_1:
     PSHX
@@ -14295,11 +14304,11 @@ _IS_PATCH_IN_INT_OR_CRT?:
     BNE     _PRINT_PATCH_NUM_PREFIX_CRT
 
 _PRINT_PATCH_NUM_PREFIX_INT:
-    LDX     #str_Int
+    LDX     #str_int
     BRA     _SET_LCD_BUFFER_DEST
 
 _PRINT_PATCH_NUM_PREFIX_CRT:
-    LDX     #str_Crt
+    LDX     #str_crt
 
 _SET_LCD_BUFFER_DEST:
     PSHX
@@ -14400,7 +14409,7 @@ _IS_BUTTON_7?:
 
 _PRINT_ALG_SELECT:
     JSR     UI_PRINT_ALG_INFO
-    LDX     #str_AlgorithmSe
+    LDX     #str_alg_select
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
     LDX     #M_PATCH_BUFFER_EDIT_ALG
     JSR     MIDI_TX_SYSEX_PARAM_CHG
@@ -14427,13 +14436,13 @@ _EDIT_FREQUENCY:
 _PRINT_MSG_FREQ_COARSE:
     LDAB    #18
     JSR     MIDI_TX_SYSEX_OPERATOR_PARAM_RELATIVE
-    LDX     #str_FCoarse
+    LDX     #str_f_coarse
     BRA     _PRINT_EDIT_FREQ_MSG
 
 _PRINT_MSG_FREQ_FINE:
     LDAB    #19
     JSR     MIDI_TX_SYSEX_OPERATOR_PARAM_RELATIVE
-    LDX     #str_FFine
+    LDX     #str_f_fine
 
 _PRINT_EDIT_FREQ_MSG:
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
@@ -14776,7 +14785,7 @@ _IS_BUTTON_20?:
 
 _PRINT_OSC_DETUNE:
     JSR     UI_PRINT_ALG_INFO
-    LDX     #str_OscDetune
+    LDX     #str_osc_detune
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
 
 _SEND_PARAM_OVER_MIDI:
@@ -14941,7 +14950,7 @@ _IS_BUTTON_31?:
 
 _PRINT_KEY_TRANSPOSE:
     JSR     UI_PRINT_ALG_INFO
-    LDX     #str_MiddleC
+    LDX     #str_middle_c
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
     LDAB    M_PATCH_BUFFER_EDIT_TRANSPOSE
     CMPB    #48
@@ -15290,49 +15299,49 @@ _PRINT_NEGATIVE_OCTAVE:
 ; ==============================================================================
 STR_PTRS_EDIT_PARAM:
     FDB 0
-    FDB str_Feedback
-    FDB str_LfoWave
-    FDB str_LfoSpeed
-    FDB str_LfoDelay
-    FDB str_LfoPmDepth
-    FDB str_LfoAmDepth
-    FDB str_LfoKeySync
-    FDB str_PModSens                            ; Index 8.
-    FDB str_AModSens
+    FDB str_feedback
+    FDB str_lfo_wave
+    FDB str_lfo_speed
+    FDB str_lfo_delay
+    FDB str_lfo_pm_depth
+    FDB str_lfo_am_depth
+    FDB str_lfo_key_sync
+    FDB str_p_mod_sens                            ; Index 8.
+    FDB str_a_mod_sens
     FDB 0
     FDB 0
     FDB 0
     FDB 0
     FDB 0
     FDB 0
-    FDB str_BreakPoint                          ; Index 16.
+    FDB str_break_point                          ; Index 16.
     FDB 0
     FDB 0
-    FDB str_RateScaling
-    FDB str_OutputLevel
-    FDB str_KeyVelocity
+    FDB str_rate_scaling
+    FDB str_output_level
+    FDB str_key_velocity
     FDB 0
-    FDB str_OscKeySync
-    FDB str_EgRate                              ; Index 24.
-    FDB str_EgRate
-    FDB str_EgRate
-    FDB str_EgRate
-    FDB str_EgLevel
-    FDB str_EgLevel
-    FDB str_EgLevel
-    FDB str_EgLevel
-    FDB str_PEgRate                             ; Index 32.
-    FDB str_PEgRate
-    FDB str_PEgRate
-    FDB str_PEgRate
-    FDB str_PEgLevel
-    FDB str_PEgLevel
-    FDB str_PEgLevel
-    FDB str_PEgLevel
-    FDB str_LScaleDepth                         ; Index 40.
-    FDB str_RScaleDepth
-    FDB str_LKeyScale
-    FDB str_RKeyScale
+    FDB str_osc_key_sync
+    FDB str_eg_rate                              ; Index 24.
+    FDB str_eg_rate
+    FDB str_eg_rate
+    FDB str_eg_rate
+    FDB str_eg_level
+    FDB str_eg_level
+    FDB str_eg_level
+    FDB str_eg_level
+    FDB str_p_eg_rate                             ; Index 32.
+    FDB str_p_eg_rate
+    FDB str_p_eg_rate
+    FDB str_p_eg_rate
+    FDB str_p_eg_level
+    FDB str_p_eg_level
+    FDB str_p_eg_level
+    FDB str_p_eg_level
+    FDB str_l_scale_depth                         ; Index 40.
+    FDB str_r_scale_depth
+    FDB str_l_key_scale
+    FDB str_r_key_scale
 
 ; ==============================================================================
 ; Edit Parameter Table.
@@ -15442,35 +15451,35 @@ TABLE_NOTE_NAMES:    FCC "C C#D D#E F F#G G#A A#B "
 ; EG Curve Name Table.
 ; ==============================================================================
 TABLE_STR_PTRS_EG_CURVES:
-    FDB str_Lin
-    FDB str_Exp
-    FDB str_Exp_0
-    FDB str_Lin_0
+    FDB str_lin_neg
+    FDB str_exp_neg
+    FDB str_exp_pos
+    FDB str_lin_pos
 
 ; ==============================================================================
 ; LFO Wave Name Table.
 ; ==============================================================================
 TABLE_STR_PTRS_LFO_WAVES:
-    FDB str_Triangl
-    FDB str_SawDwn
-    FDB str_SawUp
-    FDB str_Square
-    FDB str_Sine
-    FDB str_SHold
+    FDB str_triangle
+    FDB str_saw_down
+    FDB str_saw_up
+    FDB str_square
+    FDB str_sine
+    FDB str_s_hold
 
 ; ==============================================================================
 ; On/Off Name Table.
 ; ==============================================================================
 TABLE_STR_PTRS_OFF_ON:
-    FDB str_Off
-    FDB str_On
+    FDB str_off
+    FDB str_on
 
 ; ==============================================================================
 ; Oscillator Frequency Mode Name Table.
 ; ==============================================================================
 TABLE_STR_PTRS_FREQ_MODE:
-    FDB str_FrequencyRa
-    FDB str_FixedFreqHz
+    FDB str_freq_ratio
+    FDB str_freq_fixed
 
 
 ; ==============================================================================
@@ -15490,7 +15499,7 @@ TABLE_STR_PTRS_FREQ_MODE:
 
 UI_EDIT_PATCH_NAME:
     JSR     UI_PRINT_ALG_INFO
-    LDX     #str_Name
+    LDX     #str_name
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
     LDX     <M_COPY_DEST_PTR
     JSR     LCD_PRINT_PATCH_NAME_TO_BUFFER
@@ -15550,12 +15559,12 @@ _IS_LOAD_OR_SAVE?:
 
 _PRINT_LOAD_MEM_MSG:
     LDAB    #1
-    LDX     #str_LoadMemoryA
+    LDX     #str_load_memory_all
     BRA     _END_UI_PRINT_SAVE_LOAD_MEM_MSG
 
 _PRINT_SAVE_MEM_MSG:
     CLRB
-    LDX     #str_SaveMemoryA
+    LDX     #str_save_memory_all
 
 _END_UI_PRINT_SAVE_LOAD_MEM_MSG:
     JMP     LCD_WRITE_LINE_1_THEN_PRINT
@@ -15576,7 +15585,7 @@ UI_FUNCTION_MODE:
     JSR     LCD_CLEAR_STR_BUFFER
     LDX     #M_LCD_BUFFER_LN_1
     STX     <M_COPY_DEST_PTR
-    LDX     #str_FunctionCon
+    LDX     #str_function_ctrl
     JSR     LCD_WRITE_STR_TO_BUFFER
     LDAB    M_FN_PARAM_CURRENT
     STAB    M_LAST_PRESSED_BTN
@@ -15836,11 +15845,11 @@ _IS_PARAM_ENABLED?:
     BEQ     _FN_PARAMETER_DISABLED
 
 _FN_PARAMETER_ENABLED:
-    LDX     #str_On
+    LDX     #str_on
     BRA     _WRITE_LCD_AND_EXIT
 
 _FN_PARAMETER_DISABLED:
-    LDX     #str_Off
+    LDX     #str_off
 
 _WRITE_LCD_AND_EXIT:
     JSR     LCD_WRITE_STR_TO_BUFFER
@@ -15851,7 +15860,7 @@ _END_UI_FUNCTION_MODE:
 _FN_8:
     LDAA    M_EDIT_BTN_8_SUB_FN
     BNE     _IS_FN_8_SUB_2?
-    LDX     #str_MidiCh
+    LDX     #str_midi_ch
     INC     M_MIDI_RX_CH
     JSR     _FN_OTHERS
     DEC     M_MIDI_RX_CH
@@ -15864,21 +15873,22 @@ _IS_FN_8_SUB_2?:
 _FN_8_SUB_1:
     TST     M_MIDI_SYS_INFO_AVAIL
     BNE     _SYS_INFO_AVAIL
-    LDX     #str_SysInfoUnav
+    LDX     #str_sysinfo_unavail
 
 _PRINT_SYS_INFO_STR_AND_EXIT:
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 _SYS_INFO_AVAIL:
-    LDX     #str_SysInfoAvai
+    LDX     #str_sysinfo_unav
     BRA     _PRINT_SYS_INFO_STR_AND_EXIT
 
 _FN_8_SUB_2:
-    LDX     #str_MidiTransmi
+    LDX     #str_midi_transmit
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
-str_SysInfoAvai:     FCC "SYS INFO AVAIL", 0
-str_SysInfoUnav:     FCC "SYS INFO UNAVAIL", 0
-str_MidiCh:          FCC "MIDI CH", 0
+
+str_sysinfo_unav:    FCC "SYS INFO AVAIL", 0
+str_sysinfo_unavail: FCC "SYS INFO UNAVAIL", 0
+str_midi_ch:         FCC "MIDI CH", 0
 
 _FN_2_MONO_POLY:
     CLRB
@@ -15908,7 +15918,7 @@ _PRINT_LCD_AND_EXIT:
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 _FN_11_CRT_FORMAT:
-    LDX     #str_CartridgeFo
+    LDX     #str_crt_form
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
 
@@ -15916,16 +15926,16 @@ _FN_11_CRT_FORMAT:
 ; Function Parameter Names Table.
 ; ==============================================================================
 TABLE_STR_PTRS_FN_PARAM_NAMES:
-    FDB str_MasterTuneA
+    FDB str_master_tune_adj
     FDB 0
-    FDB str_PBendRange
-    FDB str_PBendStep
+    FDB str_p_bend_range
+    FDB str_p_bend_step
     FDB 0
-    FDB str_Glissando
-    FDB str_PortaTime
+    FDB str_glissando
+    FDB str_porta_time
     FDB 0
-    FDB str_EditRecall
-    FDB str_VoiceInit
+    FDB str_edit_recall
+    FDB str_voice_init
     FDB 0
 
 ; ==============================================================================
@@ -15934,7 +15944,7 @@ TABLE_STR_PTRS_FN_PARAM_NAMES:
 TABLE_STR_PTRS_MIDI_CH:
     FDB aMidiRecvCh
     FDB aMidiTrnsCh
-    FDB str_BatteryVolt
+    FDB str_battery_volt
 
 ; ==============================================================================
 ; Function Parameter Pointers Table.
@@ -15961,10 +15971,10 @@ TABLE_FN_PARAMS:
 ; used in the 'Function Mode' UI.
 ; ==============================================================================
 TABLE_STR_PTRS_MOD_SRC_NAMES:
-    FDB str_Wheel
-    FDB str_Foot
-    FDB str_Breath
-    FDB str_After
+    FDB str_wheel
+    FDB str_foot
+    FDB str_breath
+    FDB str_after
 
 ; ==============================================================================
 ; Modulation Parameter Names Table.
@@ -15972,10 +15982,10 @@ TABLE_STR_PTRS_MOD_SRC_NAMES:
 ; used in the 'Function Mode' UI.
 ; ==============================================================================
 TABLE_STR_PTRS_MOD_PARAM_NAMES:
-    FDB str_Range
-    FDB str_Pitch
-    FDB str_Amp
-    FDB str_EgB
+    FDB str_range
+    FDB str_pitch
+    FDB str_amp
+    FDB str_eg_b
 
 ; ==============================================================================
 ; Function Parameters 16-32 Pointers Table.
@@ -16004,8 +16014,8 @@ TABLE_FUNC_PARAMS_16_32:
 ; used in the 'Function Mode' UI.
 ; ==============================================================================
 TABLE_STR_PTRS_POLY_MONO:
-    FDB str_PolyMode
-    FDB str_MonoMode
+    FDB str_poly_mode
+    FDB str_mono_mode
 
 ; ==============================================================================
 ; Sustain Mode Names Table.
@@ -16013,10 +16023,10 @@ TABLE_STR_PTRS_POLY_MONO:
 ; the 'Function Mode' UI.
 ; ==============================================================================
 TABLE_STR_PTRS_SUSTAIN_MODE:
-    FDB str_SusKeyPReta
-    FDB str_SusKeyPFoll
-    FDB str_FingeredPor
-    FDB str_FullTimePor
+    FDB str_sus_retain
+    FDB str_sus_follow
+    FDB str_porta_fingered
+    FDB str_porta_full_time
 
 ; ==============================================================================
 ; MIDI Parameter Strings.
@@ -16048,11 +16058,11 @@ UI_MEM_PROTECT_STATE:
     SUBB    #33
     PSHB
     BNE     _CRT_SELECTED
-    LDX     #str_MemoryProtectInt
+    LDX     #str_mem_protect_int
     BRA     _WRITE_PROTECT_STATUS_TO_STR_BUFFER
 
 _CRT_SELECTED:
-    LDX     #str_MemoryProtectCrt
+    LDX     #str_mem_protect_crt
 
 _WRITE_PROTECT_STATUS_TO_STR_BUFFER:
     PSHX
@@ -16070,7 +16080,7 @@ _TEST_INT_PROTECT:
     BEQ     _PRINT_MSG_OFF
 
 _PRINT_MSG_ON:
-    LDX     #str_On
+    LDX     #str_on
     BRA     _PRINT_STATUS_STRING
 
 _IS_CRT_PROTECTED?:
@@ -16079,7 +16089,7 @@ _IS_CRT_PROTECTED?:
     BRA     _PRINT_MSG_ON
 
 _PRINT_MSG_OFF:
-    LDX     #str_Off
+    LDX     #str_off
 
 _PRINT_STATUS_STRING:
     PSHX
@@ -16106,7 +16116,7 @@ _PRINT_STATUS_STRING:
 UI_PRINT_ALG_INFO:
     LDX     #M_LCD_BUFFER_LN_1
     STX     <M_COPY_DEST_PTR
-    LDX     #str_Alg
+    LDX     #str_alg
     JSR     LCD_WRITE_STR_TO_BUFFER
     LDAB    M_PATCH_BUFFER_EDIT_ALG
     CMPB    #31
@@ -16365,91 +16375,91 @@ _PRINT_SECOND_DIGIT:
 ; String Table.
 ; This is the synth's main string table.
 ; ==============================================================================
-str_InternalVoi:     FCC "INTERNAL VOICE", 0
-str_CartridgeVo:     FCC "CARTRIDGE VOICE", 0
-str_Int:             FCC "INT", 0
-str_Crt:             FCC "CRT", 0
-str_Alg:             FCC "ALG", 0
-str_Feedback:        FCC "FEEDBACK", 0
-str_LfoWave:         FCC "LFO WAVE=", 0
-str_LfoSpeed:        FCC "LFO SPEED", 0
-str_LfoDelay:        FCC "LFO DELAY", 0
-str_LfoPmDepth:      FCC "LFO PM DEPTH", 0
-str_LfoAmDepth:      FCC "LFO AM DEPTH", 0
-str_PModSens:        FCC "P MOD SENS.", 0
-str_AModSens:        FCC "A MOD SENS.", 0
-str_LfoKeySync:      FCC "LFO KEY SYNC=", 0
-str_FCoarse:         FCC "F COARSE=", 0
-str_FFine:           FCC "F FINE  =", 0
-str_OscDetune:       FCC "OSC DETUNE =", 0
-str_EgRate:          FCC "EG  RATE  ", 0
-str_EgLevel:         FCC "EG  LEVEL ", 0
-str_BreakPoint:      FCC "BREAK POINT=", 0
-str_LKeyScale:       FCC "L KEY SCALE=", 0
-str_RKeyScale:       FCC "R KEY SCALE=", 0
-str_LScaleDepth:     FCC "L SCALE DEPTH", 0
-str_RScaleDepth:     FCC "R SCALE DEPTH", 0
-str_RateScaling:     FCC "RATE SCALING ", 0
-str_OutputLevel:     FCC "OUTPUT LEVEL", 0
-str_KeyVelocity:     FCC "KEY VELOCITY ", 0
-str_PEgRate:         FCC "P EG RATE  ", 0
-str_PEgLevel:        FCC "P EG LEVEL ", 0
-str_MiddleC:         FCC "MIDDLE C = ", 0
-str_FunctionCon:     FCC "FUNCTION CONTROL", 0
-str_MasterTuneA:     FCC "MASTER TUNE ADJ", 0
-str_PBendRange:      FCC "P BEND RANGE", 0
-str_PBendStep:       FCC "P BEND STEP", 0
-str_PortaTime:       FCC "PORTA TIME", 0
-str_OscKeySync:      FCC "OSC KEY SYNC=", 0
-str_BatteryVolt:     FCC "BATTERY VOLT", 0
-str_LoadMemoryA:     FCC " LOAD MEMORY     ALL OF MEMORY ?", 0
-str_SaveMemoryA:     FCC " SAVE MEMORY     ALL OF MEMORY ?", 0
-str_Wheel:           FCC "WHEEL ", 0
-str_Foot:            FCC "FOOT  ", 0
-str_Breath:          FCC "BREATH", 0
-str_After:           FCC "AFTER ", 0
-str_Range:           FCC "RANGE", 0
-str_Pitch:           FCC "PITCH", 0
-str_Amp:             FCC "AMP  ", 0
-str_EgB:             FCC "EG B.", 0
-str_MemoryProtectInt: FCC " MEMORY PROTECT  INTERNAL ", 0
-str_MemoryProtectCrt: FCC " MEMORY PROTECT  CARTRIDGE", 0
-str_AreYouSure:      FCC " ARE YOU SURE ? ", 0
-str_MemoryProte:     FCC "MEMORY PROTECTED", 0
-str_On:              FCC "ON", 0
-str_Off:             FCC "OFF", 0
-str_Glissando:       FCC "GLISSANDO", 0
-str_AlgorithmSe:     FCC "ALGORITHM SELECT", 0
-str_ToOp:            FCC " to OP", 0
-str_Name:            FCC "NAME= ", 0
-str_UnderWritin:     FCC " UNDER WRITING !", 0
-str_MidiDataErr:     FCC "MIDI DATA ERROR!", 0
-str_MidiBufferF:     FCC "MIDI BUFFER FULL", 0
-str_ChangeBatte:     FCC "CHANGE BATTERY !", 0
-str_PolyMode:        FCC "POLY MODE", 0
-str_MonoMode:        FCC "MONO MODE", 0
-str_EgCopyFromO:     FCC " EG COPY         from OP", 0
-str_Lin:             FCC "-LIN", 0
-str_Exp:             FCC "-EXP", 0
-str_Exp_0:           FCC "+EXP", 0
-str_Lin_0:           FCC "+LIN", 0
-str_Triangl:         FCC "TRIANGL", 0
-str_SawDwn:          FCC "SAW DWN", 0
-str_SawUp:           FCC "SAW UP", 0
-str_Square:          FCC "SQUARE", 0
-str_Sine:            FCC "SINE", 0
-str_SHold:           FCC "S/HOLD", 0
-str_FrequencyRa:     FCC "FREQUENCY(RATIO)", 0
-str_FixedFreqHz:     FCC "FIXED FREQ.(Hz)", 0
-str_SusKeyPReta:     FCC "SUS-KEY P RETAIN", 0
-str_SusKeyPFoll:     FCC "SUS-KEY P FOLLOW", 0
-str_FullTimePor:     FCC "FULL TIME PORTA", 0
-str_FingeredPor:     FCC "FINGERED PORTA", 0
-str_EditRecall:      FCC "EDIT RECALL ?", 0
-str_VoiceInit:       FCC "VOICE INIT ?", 0
-str_NotReadyIns:     FCC "   NOT READY !  INSERT CARTRIDGE", 0
-str_CartridgeFo:     FCC "CARTRIDGE FORM ?", 0
-str_MidiTransmi:     FCC " MIDI TRANSMIT ?", 0
+str_internal_voice:  FCC "INTERNAL VOICE", 0
+str_cartridge_voice: FCC "CARTRIDGE VOICE", 0
+str_int:             FCC "INT", 0
+str_crt:             FCC "CRT", 0
+str_alg:             FCC "ALG", 0
+str_feedback:        FCC "FEEDBACK", 0
+str_lfo_wave:        FCC "LFO WAVE=", 0
+str_lfo_speed:       FCC "LFO SPEED", 0
+str_lfo_delay:       FCC "LFO DELAY", 0
+str_lfo_pm_depth:    FCC "LFO PM DEPTH", 0
+str_lfo_am_depth:    FCC "LFO AM DEPTH", 0
+str_p_mod_sens:      FCC "P MOD SENS.", 0
+str_a_mod_sens:      FCC "A MOD SENS.", 0
+str_lfo_key_sync:    FCC "LFO KEY SYNC=", 0
+str_f_coarse:        FCC "F COARSE=", 0
+str_f_fine:          FCC "F FINE  =", 0
+str_osc_detune:      FCC "OSC DETUNE =", 0
+str_eg_rate:         FCC "EG  RATE  ", 0
+str_eg_level:        FCC "EG  LEVEL ", 0
+str_break_point:     FCC "BREAK POINT=", 0
+str_l_key_scale:     FCC "L KEY SCALE=", 0
+str_r_key_scale:     FCC "R KEY SCALE=", 0
+str_l_scale_depth:   FCC "L SCALE DEPTH", 0
+str_r_scale_depth:   FCC "R SCALE DEPTH", 0
+str_rate_scaling:    FCC "RATE SCALING ", 0
+str_output_level:    FCC "OUTPUT LEVEL", 0
+str_key_velocity:    FCC "KEY VELOCITY ", 0
+str_p_eg_rate:       FCC "P EG RATE  ", 0
+str_p_eg_level:      FCC "P EG LEVEL ", 0
+str_middle_c:        FCC "MIDDLE C = ", 0
+str_function_ctrl:   FCC "FUNCTION CONTROL", 0
+str_master_tune_adj: FCC "MASTER TUNE ADJ", 0
+str_p_bend_range:    FCC "P BEND RANGE", 0
+str_p_bend_step:     FCC "P BEND STEP", 0
+str_porta_time:      FCC "PORTA TIME", 0
+str_osc_key_sync:    FCC "OSC KEY SYNC=", 0
+str_battery_volt:    FCC "BATTERY VOLT", 0
+str_load_memory_all: FCC " LOAD MEMORY     ALL OF MEMORY ?", 0
+str_save_memory_all: FCC " SAVE MEMORY     ALL OF MEMORY ?", 0
+str_wheel:           FCC "WHEEL ", 0
+str_foot:            FCC "FOOT  ", 0
+str_breath:          FCC "BREATH", 0
+str_after:           FCC "AFTER ", 0
+str_range:           FCC "RANGE", 0
+str_pitch:           FCC "PITCH", 0
+str_amp:             FCC "AMP  ", 0
+str_eg_b:            FCC "EG B.", 0
+str_mem_protect_int: FCC " MEMORY PROTECT  INTERNAL ", 0
+str_mem_protect_crt: FCC " MEMORY PROTECT  CARTRIDGE", 0
+str_are_you_sure:    FCC " ARE YOU SURE ? ", 0
+str_mem_protected:   FCC "MEMORY PROTECTED", 0
+str_on:              FCC "ON", 0
+str_off:             FCC "OFF", 0
+str_glissando:       FCC "GLISSANDO", 0
+str_alg_select:      FCC "ALGORITHM SELECT", 0
+str_to_op:           FCC " to OP", 0
+str_name:            FCC "NAME= ", 0
+str_under_writing:   FCC " UNDER WRITING !", 0
+str_midi_data_err:   FCC "MIDI DATA ERROR!", 0
+str_midi_data_full:  FCC "MIDI BUFFER FULL", 0
+str_change_battery:  FCC "CHANGE BATTERY !", 0
+str_poly_mode:       FCC "POLY MODE", 0
+str_mono_mode:       FCC "MONO MODE", 0
+str_eg_copy_from_op: FCC " EG COPY         from OP", 0
+str_lin_neg:         FCC "-LIN", 0
+str_exp_neg:         FCC "-EXP", 0
+str_exp_pos:         FCC "+EXP", 0
+str_lin_pos:         FCC "+LIN", 0
+str_triangle:        FCC "TRIANGL", 0
+str_saw_down:        FCC "SAW DWN", 0
+str_saw_up:          FCC "SAW UP", 0
+str_square:          FCC "SQUARE", 0
+str_sine:            FCC "SINE", 0
+str_s_hold:          FCC "S/HOLD", 0
+str_freq_ratio:      FCC "FREQUENCY(RATIO)", 0
+str_freq_fixed:      FCC "FIXED FREQ.(Hz)", 0
+str_sus_retain:      FCC "SUS-KEY P RETAIN", 0
+str_sus_follow:      FCC "SUS-KEY P FOLLOW", 0
+str_porta_full_time: FCC "FULL TIME PORTA", 0
+str_porta_fingered:  FCC "FINGERED PORTA", 0
+str_edit_recall:     FCC "EDIT RECALL ?", 0
+str_voice_init:      FCC "VOICE INIT ?", 0
+str_crt_not_ready:   FCC "   NOT READY !  INSERT CARTRIDGE", 0
+str_crt_form:        FCC "CARTRIDGE FORM ?", 0
+str_midi_transmit:   FCC " MIDI TRANSMIT ?", 0
 
 
 ; ==============================================================================
