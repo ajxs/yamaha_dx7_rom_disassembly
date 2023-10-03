@@ -145,6 +145,7 @@ VOICE_STATUS_SUSTAIN:                     equ  1
 VOICE_STATUS_ACTIVE:                      equ  %10
 SCI_RIE_RE_TE:                            equ  %111010
 SCI_RIE_RE_TIE_TE:                        equ  %111110
+
 KEY_EVENT_ACTIVE:                         equ  %10000000
 
 
@@ -153,8 +154,8 @@ KEY_EVENT_ACTIVE:                         equ  %10000000
 ; These bitmasked flags indicate the physical status of the synth's cartridge
 ; interface. They are read from the 8255 peripheral controller's IO port C.
 ; ==============================================================================
-CRT_FLAG_INSERTED:                        equ  %100000
-CRT_FLAG_PROTECTED:                       equ  %1000000
+CRT_FLAG_INSERTED:                        equ  1 << 5
+CRT_FLAG_PROTECTED:                       equ  1 << 6
 
 
 ; ==============================================================================
@@ -162,8 +163,8 @@ CRT_FLAG_PROTECTED:                       equ  %1000000
 ; These bitmasked flags are used to store the status of the synth's
 ; firmware level memory protection.
 ; ==============================================================================
-MEM_PROTECT_INT:                          equ  %1000000
-MEM_PROTECT_CRT:                          equ  %10000000
+MEM_PROTECT_INT:                          equ  1 << 6
+MEM_PROTECT_CRT:                          equ  1 << 7
 
 
 ; ==============================================================================
@@ -308,6 +309,7 @@ M_MIDI_ACTV_SENS_RX_CTR:                  equ  $9B
 ; and pitch EG values are stored in the same format.
 M_KEY_FREQ:                               equ  $9D
 M_KEY_FREQ_LOW:                           equ  $9E
+
 M_KEY_EVENT_CURRENT:                      equ  $AA
 M_VOICE_NOTE_CURRENT:                     equ  $AE
 M_PITCH_BEND_INPUT_SIGNED:                equ  $B8
@@ -916,6 +918,7 @@ TEST_ENTRY:
     STAA    <M_TEST_MODE_BUTTON_CHECK
     LDS     #M_STACK_TOP
     BSR     TEST_RESET_VOICE_PARAMS
+
     CLI
     BRA     _TEST_ENTRY_BEGIN
 
@@ -956,6 +959,7 @@ _TEST_RESET_PITCH_EG_LOOP:
     INX
     DECB
     BNE     _TEST_RESET_PITCH_EG_LOOP           ; if ACCB > 0, loop.
+
     RTS
 
 
@@ -1003,6 +1007,7 @@ TEST_MAIN_LOOP:
 TEST_MAIN_FUNCTIONS_1:
     TST     M_LAST_ANALOG_INPUT_EVENT
     BNE     _IS_LAST_BTN_NO?
+
     RTS
 
 ; If the last button was 'DOWN' decrement the test stage.
@@ -1011,6 +1016,7 @@ _IS_LAST_BTN_NO?:
     LDAB    M_LAST_INPUT_EVENT
     CMPB    #BUTTON_NO_DOWN
     BNE     _IS_LAST_BTN_YES?
+
     JSR     TEST_STAGE_DECREMENT
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
@@ -1028,27 +1034,32 @@ _IS_TEST_STG_7?:
     LDAB    M_TEST_STAGE
     CMPB    #7
     BNE     _IS_TEST_STG_2?
+
     LDAB    <M_LAST_ANALOG_INPUT_EVENT
     CMPB    #1
     BNE     _IS_BUTTON_16_PRESSED?
+
     JSR     TEST_STAGE_8_CRT_EEPROM
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
 _IS_BUTTON_16_PRESSED?:
     CMPB    #16
     BNE     _END_TEST_MAIN_FUNCTIONS_1
+
     JSR     TEST_STAGE_8_COPY_CRT_TO_RAM
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
 _IS_TEST_STG_2?:
     CMPB    #2
     BNE     _IS_TEST_STG_3?
+
     JSR     TEST_STAGE_3_SWITCHES
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
 _IS_TEST_STG_3?:
     CMPB    #3
     BNE     _IS_TEST_STG_5?
+
     JSR     TEST_STAGE_4_KBD
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
@@ -1060,6 +1071,7 @@ _IS_LAST_BTN_FUNC?:
     LDAB    M_LAST_INPUT_EVENT
     CMPB    #BUTTON_FUNCTION
     BNE     _TEST_5
+
     CLR     M_TEST_AD_STAGE_FLAGS
     BRA     _ADVANCE_STAGE
 
@@ -1069,6 +1081,7 @@ _TEST_5:
 _END_TEST_MAIN_FUNCTIONS_1:
     CLR     M_LAST_ANALOG_INPUT_EVENT
     CLR     M_LAST_INPUT_EVENT
+
     RTS
 
 
@@ -1095,18 +1108,21 @@ _TEST_STAGE_2:
 _NOT_TEST_STAGE_2:
     CMPA    M_TEST_STAGE_2
     BNE     _IS_TEST_STAGE_6?
+
     BRA     _IS_TEST_STAGE_3?
 
 _IS_TEST_STAGE_6?:
     STAA    M_TEST_STAGE_2
     CMPA    #5
     BNE     _IS_TEST_STAGE_7?
+
     JSR     TEST_STAGE_6_CRT_READ
     RTS
 
 _IS_TEST_STAGE_7?:
     CMPA    #6
     BNE     _IS_TEST_STAGE_3?
+
     JSR     TEST_STAGE_7_CRT_WRITE
     RTS
 
@@ -1167,6 +1183,7 @@ _TEST_IS_PORTA_PEDAL_ACTIVE?:
     LDAB    M_PEDAL_INPUT_STATUS
     BITB    #PEDAL_STATUS_PORTAMENTO_ACTIVE
     BEQ     _END_TEST_MAIN_FUNCTIONS_2
+
     LDX     #str_ok
     BRA     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
@@ -1218,12 +1235,14 @@ _ARE_TESTS_FINISHED?:
 
 _TESTS_NOT_FINISHED:
     BSR     TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG
+
     INC     M_TEST_STAGE
     LDAA    M_TEST_STAGE
 
 _IS_TEST_STAGE_4?:
     CMPA    #3
     BNE     _STOP_TEST_TONE
+
     INCA
 
 ; Stores the test stage in memory at this location.
@@ -1278,6 +1297,7 @@ TEST_CLEAR_FLAGS:
     STAA    M_MIDI_ACTV_SENS_TX_CNTR
     JSR     TEST_PRINT_STAGE_NAME
     JSR     TEST_RESET_VOICE_PARAMS
+
     RTS
 
 
@@ -1292,11 +1312,12 @@ TEST_CLEAR_FLAGS:
 ; ==============================================================================
 
 TEST_STAGE_DECREMENT:
-    TST     M_TEST_STAGE
-
 ; Check if we're at test stage 1.
+    TST     M_TEST_STAGE
     BEQ     _END_TEST_STAGE_DECREMENT
+
     BSR     TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG
+
     DEC     M_TEST_STAGE
     BSR     TEST_CLEAR_FLAGS
 
@@ -1305,6 +1326,7 @@ TEST_STAGE_DECREMENT:
 ; performed since test 1 is not part of the main diagnostic test loop.
     TST     M_TEST_STAGE
     BNE     _END_TEST_STAGE_DECREMENT
+
     JSR     TEST_STAGE_1_TONE
 
 _END_TEST_STAGE_DECREMENT:
@@ -1331,6 +1353,7 @@ _END_TEST_STAGE_DECREMENT:
 TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG:
     LDAB    <M_TEST_AD_STAGE_FLAGS
     BEQ     _TEST_5_COMPLETE
+
     CMPB    #%111111
     BEQ     _TEST_5_COMPLETE
 
@@ -1341,6 +1364,7 @@ TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG:
 
 _TEST_5_COMPLETE:
     CLR     M_TEST_AD_STAGE_FLAGS
+
     RTS
 
 str_not_complete:    FCC "NOT COMPLETED !", 0
@@ -1394,21 +1418,22 @@ _TEST_PRINT_STAGE_NAME_TO_BUFFER:
 ; the test names to the LCD.
 ; ==============================================================================
 TABLE_TEST_STAGE_NAMES:
-    FDB str_1Level
-    FDB str_1Level
-    FDB str_3Sw
-    FDB str_4Kbd
-    FDB str_5AD
-    FDB str_6CrtR
-    FDB str_7CrtW
-    FDB str_8CrtRw
-str_1Level:          FCC "1 LEVEL", 0
-str_3Sw:             FCC "3 SW", 0
-str_4Kbd:            FCC "4 KBD", 0
-str_5AD:             FCC "5 A/D", 0
-str_6CrtR:           FCC "6 CRT R", 0
-str_7CrtW:           FCC "7 CRT W", 0
-str_8CrtRw:          FCC "8 CRT RW", 0
+    FDB str_test_1_level
+    FDB str_test_1_level
+    FDB str_test_3_sw
+    FDB str_test_4_kbd
+    FDB str_test_5_ad
+    FDB str_test_6_ctr_r
+    FDB str_test_7_ctr_w
+    FDB str_test_8_ctr_rw
+
+str_test_1_level:    FCC "1 LEVEL", 0
+str_test_3_sw:       FCC "3 SW", 0
+str_test_4_kbd:      FCC "4 KBD", 0
+str_test_5_ad:       FCC "5 A/D", 0
+str_test_6_ctr_r:    FCC "6 CRT R", 0
+str_test_7_ctr_w:    FCC "7 CRT W", 0
+str_test_8_ctr_rw:   FCC "8 CRT RW", 0
 
 
 ; ==============================================================================
@@ -1491,6 +1516,7 @@ TEST_STAGE_3_SWITCHES:
     LDAA    <M_LAST_ANALOG_INPUT_EVENT
     CMPA    #40
     BLS     _IS_TEST_ALREADY_COMPLETE?
+
     RTS
 
 ; This flag is reset in the clear test flags function.
@@ -1499,6 +1525,7 @@ _IS_TEST_ALREADY_COMPLETE?:
     LDAA    M_TEST_STAGE_SUB
     CMPA    #40
     BNE     _TEST_SWITCHES
+
     RTS
 
 ; Print the current button number to the LED.
@@ -1532,6 +1559,7 @@ _CORRECT_BUTTON_PRESSED:
     STAA    M_PATCH_NUMBER_CURRENT
     CMPA    #40
     BEQ     _TEST_SUSTAIN
+
     JSR     LED_PRINT_PATCH_NUMBER
     JSR     LCD_CLEAR_STR_BUFFER_LINE_2
     JMP     LCD_PRINT_STR_BUFFER
@@ -1566,12 +1594,14 @@ TEST_STAGE_4_KBD:
 ; was '44', indicating a 'Key Down' event.
     CMPA    #44
     BEQ     _LAST_INPUT_IS_KEY_DOWN
+
     RTS
 
 _LAST_INPUT_IS_KEY_DOWN:
     LDAA    M_TEST_STAGE_SUB
     CMPA    #61
     BNE     _IS_CORRECT_KEYPRESS_SEQUENCE?
+
     RTS
 
 ; Test if the keys were pressed in the correct sequence.
@@ -1585,6 +1615,7 @@ _IS_CORRECT_KEYPRESS_SEQUENCE?:
     SUBA    #36
     SUBA    M_TEST_STAGE_SUB
     BEQ     _KEY_IS_CORRECT
+
     LDX     #str_kbd_error
 
 _CLEAR_LCD_LINE_2:
@@ -1595,6 +1626,7 @@ _KEY_IS_CORRECT:
     LDAA    <M_NOTE_VEL
     CMPA    #80
     BLS     _VELOCITY_IS_OK
+
     LDX     #str_kbd_touch_err
     BRA     _CLEAR_LCD_LINE_2
 
@@ -1644,12 +1676,12 @@ _LCD_CLEAR_STR_BUFFER_LINE_2_LOOP:
     INX
     DECB
     BNE     _LCD_CLEAR_STR_BUFFER_LINE_2_LOOP   ; If b > 0, loop.
+
     RTS
 
 
-; Print to LCD Buffer Line 2 + 10.
-
 _PRINT_NOTES:
+; Print to LCD Buffer Line 2 + 10.
     LDX     #$2639
     STX     <M_COPY_DEST_PTR
     LDAB    M_TEST_STAGE_SUB
@@ -1676,14 +1708,15 @@ str_kbd_touch_err:   FCC "TOUCH ERR", 0
 ; ==============================================================================
 
 TEST_STAGE_5_AD:
-    LDAB    <M_ANALOG_DATA_SRC
-
 ; If the last analog data source touched has not changed, then
 ; do not re-print its name to the LCD.
+    LDAB    <M_ANALOG_DATA_SRC
     CMPB    $2582
     BEQ     _TEST_STAGE_5_AD_CONVERT_OUTPUT
+
     CMPB    #6
     BEQ     _END_TEST_STAGE_5_AD
+
     PSHB
     JSR     LCD_CLEAR_STR_BUFFER_LINE_2
     PULB
@@ -1724,12 +1757,13 @@ _END_TEST_STAGE_5_AD:
     RTS
 
 STR_PTRS_TEST_AD:
-    FDB aDataEntry
-    FDB aPBend
-    FDB aMWheel
+    FDB str_data_entry
+    FDB str_p_bend
+    FDB str_m_wheel
     FDB str_foot
     FDB str_breath
     FDB str_after
+
 TABLE_TEST_AD:
     FCB 1
     FCB 2
@@ -1737,9 +1771,10 @@ TABLE_TEST_AD:
     FCB 8
     FCB 16
     FCB 32
-aDataEntry:          FCC "DATA ENTRY", 0
-aPBend:              FCC "P BEND", 0
-aMWheel:             FCC "M WHEEL", 0
+
+str_data_entry:      FCC "DATA ENTRY", 0
+str_p_bend:          FCC "P BEND", 0
+str_m_wheel:         FCC "M WHEEL", 0
 
 
 ; ==============================================================================
@@ -1774,13 +1809,16 @@ _CRT_RW_TEST_LOOP:
 
 ; Test if this byte has been successfully cleared.
     BEQ     _CLEAR_BYTE_SUCCESS
+
     JMP     PRINT_TEST_CRT_ERROR_MSG
 
 _CLEAR_BYTE_SUCCESS:
     BSR     TEST_CRT_WRITE_BYTE
+
     INX
     CPX     #P_CRT_END
     BNE     _CRT_RW_TEST_LOOP                   ; If IX < 0x5000, loop.
+
     JSR     TEST_STAGE_8_CRT_EEPROM_CLEAR
     LDX     #str_eeprom_ok
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
@@ -1807,15 +1845,17 @@ _CLEAR_BYTE_SUCCESS:
 ; ==============================================================================
 
 TEST_CRT_WRITE_BYTE:
-    LDAA    #$55                                ; 'U'
+    LDAA    #$55
     JSR     CRT_WRITE_BYTE
 
 ; If the carry-bit is set after the previous function call, it indicates an
 ; error condition has occurred.
     BCS     CRT_PRINT_TEST_ERROR
+
     LDAA    #$AA
     JSR     CRT_WRITE_BYTE
     BCS     CRT_PRINT_TEST_ERROR
+
     RTS
 
 
@@ -1839,9 +1879,11 @@ _CRT_CLEAR_LOOP:
 
 ; If the carry bit is set, this indicates an error condition.
     BCS     CRT_PRINT_TEST_ERROR
+
     INX
     CPX     #P_CRT_END
     BNE     _CRT_CLEAR_LOOP                     ; If IX < 0x5000, loop.
+
     RTS
 
 CRT_PRINT_TEST_ERROR:
@@ -1861,6 +1903,7 @@ CRT_PRINT_TEST_ERROR:
 
 TEST_STAGE_6_CRT_READ:
     BSR     TEST_CRT_CHECK_INSERTED
+
     LDX     #P_CRT_START
     LDD     #0
 
@@ -1869,13 +1912,13 @@ TEST_STAGE_6_CRT_READ:
 ; ACCB from cartridge memory, copying ACCB to ACCA, then testing if the
 ; values are equal.
 ; If they're not equal, an error message is printed.
-
 _CRT_READ_LOOP:
     STD     <M_COPY_DEST_PTR
     ABA
     LDAB    0,x
     CBA
     BEQ     _INCREMENT_POINTER
+
     JMP     PRINT_TEST_CRT_ERROR_MSG
 
 ; Increment the copy destination, and source pointers.
@@ -1886,6 +1929,7 @@ _INCREMENT_POINTER:
     INX
     CPX     #P_CRT_END
     BNE     _CRT_READ_LOOP                      ; If IX < 0x5000, loop.
+
     LDX     #str_read_ok
     JMP     LCD_CLR_WRITE_LINE_2_THEN_PRINT
 
@@ -1930,6 +1974,7 @@ TEST_CRT_CHECK_INSERTED:
     LDAA    P_CRT_PEDALS_LCD
     BITA    #CRT_FLAG_INSERTED
     BNE     _PRINT_INSERT_CRT_MSG
+
     RTS
 
 _PRINT_INSERT_CRT_MSG:
@@ -1954,6 +1999,7 @@ _PRINT_INSERT_CRT_MSG:
 TEST_CRT_CHECK_MEM_PROTECTION:
     BITA    #CRT_FLAG_PROTECTED
     BNE     _PRINT_MSG_MEM_PROTECTED
+
     RTS
 
 _PRINT_MSG_MEM_PROTECTED:
@@ -2030,6 +2076,7 @@ DELAY_LOOP:
     JSR     DELAY_450_CYCLES
     DECB
     BNE     DELAY_LOOP                          ; If ACCB > 0, loop.
+
     RTS
 
 _FILL_SCREEN:
@@ -2047,6 +2094,7 @@ _STORE_LED_CONTENTS:
 _SET_LCD_CONTENTS:
     CMPA    #32
     BNE     _CLEAR_LCD
+
     LDAA    #$FF
 
 _STORE_LCD_CONTENTS:
@@ -2080,16 +2128,16 @@ TEST_RAM:
     LDX     #$27C0
     STX     <M_COPY_DEST_PTR
 
+_TEST_RAM_LOOP:
 ; Copy the 32 byte block pointed to by the origin pointer to
 ; the temporary address.
-
-_TEST_RAM_LOOP:
     BSR     TEST_RAM_COPY_BLOCK_TO_TEMP
     BSR     TEST_RAM_BLOCK
     BSR     TEST_RAM_COPY_BLOCK_FROM_TEMP
     LDX     <M_COPY_SRC_PTR
     CPX     #$27C0
     BCS     _TEST_RAM_LOOP                      ; If ORIGIN < 0x27C0, loop.
+
     RTS
 
 
@@ -2177,6 +2225,7 @@ _TEST_RAM_MEMCPY_LOOP:
     INCB
     CMPB    #32
     BNE     _TEST_RAM_MEMCPY_LOOP
+
     RTS
 
 
@@ -2198,12 +2247,13 @@ _TEST_RAM_MEMCPY_LOOP:
 ; ==============================================================================
 
 TEST_RAM_BLOCK:
-    CLRB                                        ; B is used as the loop index.
+; B is used as the loop index.
+    CLRB
 
 _TEST_RAM_BLOCK_LOOP:
     LDX     <M_COPY_SRC_PTR
     ABX
-    LDAA    #$55                                ; 'U'
+    LDAA    #$55
 
 ; Test writing 0x55 to 0xF9+ACCB.
     BSR     TEST_RAM_ADDRESS
@@ -2309,17 +2359,20 @@ HANDLER_RESET:
     LDAA    #13
     CMPA    M_PITCH_BND_RANGE
     BHI     _RESET_PITCH_BEND_STEP
+
     CLR     M_PITCH_BND_RANGE
 
 _RESET_PITCH_BEND_STEP:
     CMPA    M_PITCH_BND_STEP
     BHI     _RESET_MIDI_CH
+
     CLR     M_PITCH_BND_STEP
 
 _RESET_MIDI_CH:
     LDAA    #16
     CMPA    M_MIDI_RX_CH
     BHI     _RESET_MIDI_TX_CH                   ; If 16 > MIDI_CH, branch.
+
     CLR     M_MIDI_RX_CH
 
 _RESET_MIDI_TX_CH:
@@ -2329,6 +2382,7 @@ _RESET_MIDI_TX_CH:
     LDAA    #100
     CMPA    M_PORTA_TIME
     BHI     _SET_EDIT_PARAM_ABOVE_5
+
     CLR     M_PORTA_TIME
 
 _SET_EDIT_PARAM_ABOVE_5:
@@ -2360,6 +2414,7 @@ _RESET_SWITCH_MODE:
     LDAA    #INPUT_MODE_FN
     CMPA    M_INPUT_MODE
     BHI     _RESET_UI_MODE
+
     STAA    M_INPUT_MODE
 
 ; Resets the current UI mode. Ensures it has a valid value.
@@ -2368,28 +2423,31 @@ _RESET_UI_MODE:
     LDAA    #UI_MODE_SET_MEM_PROTECT
     CMPA    M_MEM_SELECT_UI_MODE
     BHI     _RESET_LAST_PRESSED_BUTTON
+
     STAA    M_MEM_SELECT_UI_MODE
 
 _RESET_LAST_PRESSED_BUTTON:
     LDAA    #BUTTON_FUNCTION
     CMPA    M_LAST_PRESSED_BTN
     BHI     _RESET_CURRENT_PATCH_NUMBER
+
     STAA    M_LAST_PRESSED_BTN
 
 _RESET_CURRENT_PATCH_NUMBER:
     LDAA    #31
     CMPA    M_PATCH_NUMBER_CURRENT
     BHI     _RESET_CURRENT_EDIT_PARAM           ; If <= 31, branch.
+
     STAA    M_PATCH_NUMBER_CURRENT
 
 _RESET_CURRENT_EDIT_PARAM:
     CMPA    M_FN_PARAM_CURRENT
     BHI     _RESET_INT_RAM                      ; If <= 31, branch.
+
     STAA    M_FN_PARAM_CURRENT
 
-; This subroutine clears all 128 bytes of internal RAM.
-
 _RESET_INT_RAM:
+; This subroutine clears all 128 bytes of internal RAM.
     LDX     #$80
     LDAB    #128
 
@@ -2602,8 +2660,10 @@ _LOAD_BTN_FUNCTION_PTR:
     PULB
     LDAA    M_INPUT_MODE
     BEQ     _BTN_MODE_PLAY
+
     CMPA    #INPUT_MODE_EDIT
     BEQ     _BTN_MODE_EDIT
+
     BRA     LCD_SET_CURSOR_BLINK_OFF
 
 ; If the synth is in 'Play Mode', and the patch in the 'Edit Buffer' has
@@ -2623,14 +2683,19 @@ _END_MAIN_PROCESS_INPUT:
 
 _BTN_MODE_EDIT:
     BNE     LCD_SET_CURSOR_BLINK_OFF
+
     CMPB    #BUTTON_6
     BLS     MAIN_PROCESS_INPUT_END
+
     CMPB    #BUTTON_32
     BEQ     MAIN_PROCESS_INPUT_END
+
     CMPB    #BUTTON_STORE
     BEQ     MAIN_PROCESS_INPUT_END
+
     CMPB    #BUTTON_EDIT_CHAR
     BEQ     MAIN_PROCESS_INPUT_END
+
     CMPB    #BUTTON_FUNCTION
     BHI     MAIN_PROCESS_INPUT_END
 
@@ -2819,6 +2884,7 @@ MAIN_PORTA_SUS_PDL_STATE_UPDATE:
     EORA    M_PEDAL_INPUT_STATUS_PREVIOUS
     BITA    #1
     BEQ     _CHECK_PORTA_PEDAL_STATUS
+
     PULA
     PSHA                                        ; Restore, and save A.
     BITA    #1
@@ -2854,6 +2920,7 @@ _CHECK_PORTA_PEDAL_STATUS:
 ; and sending the appropriate MIDI message.
     BITA    #%10
     BEQ     _END_MAIN_PORTA_SUS_PDL_STATE_UPDATE
+
     PULA
     PSHA
     BITA    #%10
@@ -2891,6 +2958,7 @@ _END_MAIN_PORTA_SUS_PDL_STATE_UPDATE:
 MAIN_ACTV_SENS_TX_CHECK:
     TST     M_MIDI_ACTV_SENS_TX_TRIGGER
     BEQ     _END_MAIN_ACTV_SENS_TX_CHECK
+
     JSR     MIDI_TX_ACTIVE_SENSING
     CLR     M_MIDI_ACTV_SENS_TX_TRIGGER
 
@@ -2913,6 +2981,7 @@ _END_MAIN_ACTV_SENS_TX_CHECK:
 MAIN_VALIDATE_PORTAMENTO:
     TST     M_PORTA_RATE_INCREMENT
     BEQ     _PORTA_RATE_INVALID
+
     RTS
 
 _PORTA_RATE_INVALID:
@@ -2934,12 +3003,14 @@ MAIN_CHECK_MIDI_ERROR_FLAG:
     LDAA    <M_MIDI_BUFFER_ERROR_CODE
     CMPA    #MIDI_ERROR_OVERRUN_FRAMING
     BNE     _MIDI_ERROR_FLAG_SET
+
     LDX     #str_midi_data_err
     BRA     _PRINT_MIDI_ERROR
 
 _MIDI_ERROR_FLAG_SET:
     CMPA    #MIDI_ERROR_BUFFER_FULL
     BNE     _END_MAIN_CHECK_MIDI_ERROR_FLAG
+
     LDX     #str_midi_data_full
 
 _PRINT_MIDI_ERROR:
@@ -2953,7 +3024,7 @@ _END_MAIN_CHECK_MIDI_ERROR_FLAG:
 
 
 ; ==============================================================================
-; HNDLR_IRQ
+; HANDLER_IRQ
 ; ==============================================================================
 ; LOCATION: 0xC8F4
 ;
@@ -3133,6 +3204,7 @@ _IS_BTN_16?:
 _UI_FN_STORE:
     TST     M_EDIT_ASCII_MODE
     BNE     _UI_FN_STORE_ABORT
+
     CLR     M_PATCH_READ_OR_WRITE
     LDAA    #42
     STAA    M_LAST_INPUT_EVENT
@@ -3156,6 +3228,7 @@ _BTN_IS_16:
     LDAA    <M_TEST_MODE_BUTTON_CHECK
     CMPA    #1
     BEQ     _RESET_TEST_MODE_BTN_CHECK
+
     RTS
 
 _RESET_TEST_MODE_BTN_CHECK:
@@ -3266,6 +3339,7 @@ INPUT_ANALOG_SRC_3_MOD_WHEEL:
 INPUT_ANALOG_UPDATE_MODULATION:
     COM     M_INPUT_ANALOG_UPDATE_MOD_TOGGLE
     BNE     _STORE_ANALOG_INPUT
+
     JSR     MOD_PROCESS_INPUT_SOURCES
 
 _STORE_ANALOG_INPUT:
@@ -3380,14 +3454,15 @@ INPUT_ANALOG_SRC_1_SLIDER:
 ; ==============================================================================
 
 INPUT_SLIDER:
-    LDAA    #1
-
 ; Set this flag to '1' to indicate that this 'Up/Down' event came from
 ; slider input. If the synth's input mode is 0 ('Play' Mode), set
 ; to 2 ('Function' Mode) as a default.
+    LDAA    #1
     STAA    <M_SLIDER_INPUT_EVENT
+
     LDAB    M_INPUT_MODE
     BNE     _LOAD_EDIT_PARAM
+
     LDAB    #INPUT_MODE_FN
 
 ; Load a pointer to the 'Slider Edit Parameters' table.
@@ -3411,6 +3486,7 @@ _LOAD_EDIT_PARAM:
 _CHECK_INPUT_MODE:
     LDAB    M_INPUT_MODE
     BNE     _LOAD_MAX_VALUE_TABLE
+
     LDAB    #INPUT_MODE_FN
 
 ; Load the pointer to the correct maximum value table, depending on what
@@ -3584,6 +3660,7 @@ PATCH_COMPARE:
 
 ; If the patch has not been modified, exit.
     BEQ     RESTORE_IRQ_AND_EXIT
+
     CMPA    #EDITED_PATCH_IN_WORKING
     BNE     _COPY_PATCH_FROM_COMPARE
 
@@ -3605,6 +3682,7 @@ _PATCH_IN_CRT_MEMORY:
     LDAB    P_CRT_PEDALS_LCD
     ANDB    #CRT_FLAG_INSERTED
     BNE     _PRINT_NOT_READY_MSG
+
     JSR     PATCH_LOAD_FROM_CRT
     BRA     _END_PATCH_COMPARE
 
@@ -3901,9 +3979,10 @@ _PRINT_EG_COPY:
     STAA    0,x
     INX
     STX     <M_COPY_DEST_PTR
-    LDX     #aToOp_0
+    LDX     #str_eg_copy_to_op
     JMP     LCD_WRITE_BFR_AND_PRINT
-aToOp_0:             FCC " to OP?", 0
+
+str_eg_copy_to_op:   FCC " to OP?", 0
 
 
 ; ==============================================================================
@@ -5228,6 +5307,7 @@ _STORE_AND_UPDATE_PITCH_MOD?:
     JSR     MOD_PROCESS_INPUT_SOURCES
     TST     M_INPUT_MODE
     BEQ     _END_BTN_YES_NO_FN_16_TO_32
+
     JSR     UI_PRINT_MAIN
 
 _END_BTN_YES_NO_FN_16_TO_32:
@@ -5262,6 +5342,7 @@ _NON_RANGE_VALUE:
 _IS_BIAS_BUTTON?:
     CMPB    #3
     BNE     _STORE_VALUE
+
     INCB
 
 _STORE_VALUE:
@@ -5289,6 +5370,7 @@ _CLEAR_PARAM_FLAG:
 _FN_16_TO_32_SLIDER_EVENT:
     LDAA    <M_UP_DOWN_INCREMENT
     BNE     _NON_RANGE_BTN_YES
+
     LDAA    #$FF
 
 _STORE_SLIDER_NO_YES_FLAG:
@@ -5357,6 +5439,7 @@ _CLEAR_PITCH_BUFFERS_LOOP:
     INX
     DEC     $86
     BNE     _CLEAR_PITCH_BUFFERS_LOOP           ; If *(0x86) > 0, loop.
+
     CLR     M_MONO_ACTIVE_VOICE_COUNT
     CLR     M_LEGATO_DIRECTION
     CLR     M_NOTE_KEY_LAST
@@ -5392,6 +5475,7 @@ _IS_SUB_FN_1?:
 _SUB_FN_1:
     TST     M_SLIDER_INPUT_EVENT
     BNE     _READ_SLIDER_UP_DWN?
+
     TST     M_UP_DOWN_INCREMENT
     BMI     _SET_SYS_INFO_UNAVAIL
 
@@ -5408,16 +5492,19 @@ _READ_SLIDER_UP_DWN?:
     LDAA    <M_UP_DOWN_INCREMENT
     CMPA    #7
     BHI     _SET_SYS_INFO_AVAIL
+
     BRA     _SET_SYS_INFO_UNAVAIL
 
 _SUB_FN_2:
     TST     M_SLIDER_INPUT_EVENT
     BEQ     _IS_YES_PRESSED?
+
     RTS
 
 _IS_YES_PRESSED?:
     TST     M_UP_DOWN_INCREMENT
     BPL     _MIDI_TRANSMIT
+
     RTS
 
 _MIDI_TRANSMIT:
@@ -5453,6 +5540,7 @@ _INPUT_MODE_PLAY:
 _IS_SLIDER_INPUT?:
     TST     M_SLIDER_INPUT_EVENT
     BEQ     _IS_BUTTON_YES_OR_NO
+
     RTS
 
 _IS_BUTTON_YES_OR_NO:
@@ -5548,6 +5636,7 @@ _LOAD_PATCH_TO_EGS:
 _IS_BTN_11?:
     CMPB    #2
     BEQ     CRT_FORMAT
+
     RTS
 
 ; ==============================================================================
@@ -5581,8 +5670,10 @@ _CRT_FORMAT_LOOP:
 
 ; If CCR[c] is set, an error has occurred.
     BCS     _CRT_FORMAT_FAIL
+
     DEC     M_CRT_FORMAT_PATCH_INDEX
     BNE     _CRT_FORMAT_LOOP                    ; If *(0x217A) > 0, loop.
+
     LDX     #str_formatting_end
 
 _END_BTN_YES_NO_FN_9_TO_11:
@@ -5613,6 +5704,7 @@ CRT_CHECK_INSERTED:
     LDAA    P_CRT_PEDALS_LCD
     ANDA    #CRT_FLAG_INSERTED
     BEQ     _END_CRT_CHECK_INSERTED
+
     JSR     CRT_PRINT_NOT_INSERTED
     PULX
 
@@ -5637,6 +5729,7 @@ CRT_CHECK_PROTECTION:
     LDAA    P_CRT_PEDALS_LCD
     ANDA    #CRT_FLAG_PROTECTED
     BEQ     _END_CRT_CHECK_PROTECTION
+
     JSR     PRINT_MSG_MEMORY_PROTECTED
     PULX
 
@@ -5659,6 +5752,7 @@ MEMORY_CHECK_CRT_PROTECT:
     LDAA    <M_MEM_PROTECT_FLAGS
     ANDA    #MEM_PROTECT_CRT
     BEQ     _END_MEMORY_CHECK_CRT_PROTECT
+
     JSR     PRINT_MSG_MEMORY_PROTECTED
     PULX
 
@@ -5683,6 +5777,7 @@ MEMORY_CHECK_INT_PROTECT:
     LDAA    <M_MEM_PROTECT_FLAGS
     ANDA    #MEM_PROTECT_INT
     BEQ     _END_MEMORY_CHECK_INT_PROTECT
+
     JSR     PRINT_MSG_MEMORY_PROTECTED
     PULX
 
@@ -5982,8 +6077,8 @@ MIDI_TX_SYSEX_NAME_EDIT:
 ; ASCII Character Table.
 ; Used in patch name editing.
 ; ==============================================================================
-TABLE_ASCII_CHARS:   FCC "1234567890ABCDEFGHIJKLMNOPQRSTUVWX"
-    FCC "YZ -. "
+TABLE_ASCII_CHARS:
+    FCC "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ -. "
 
 
 ; ==============================================================================
@@ -14806,7 +14901,7 @@ _SEND_PARAM_OVER_MIDI:
 
 _PRINT_OSC_DETUNE_VALUE:
     ASLB
-    LDX     #a76543210123456
+    LDX     #str_detune_digits
     ABX
     LDD     0,x
     LDX     <M_COPY_DEST_PTR
@@ -14815,7 +14910,8 @@ _PRINT_FINAL_CHARS:
     STAA    0,x
     STAB    1,x
     JMP     _END_UI_EDIT_MODE
-a76543210123456:     FCC "-7-6-5-4-3-2-1 0+1+2+3+4+5+6+7"
+
+str_detune_digits:   FCC "-7-6-5-4-3-2-1 0+1+2+3+4+5+6+7"
 
 
 ; ==============================================================================
@@ -14937,7 +15033,6 @@ MIDI_TX_SYSEX_OPERATOR_ON_OFF:
     LDX     #M_PATCH_OPERATOR_STATUS_CURRENT
     JSR     MIDI_TX_SYSEX_PARAM_CHG
 
-
 _RESET_EDIT_PARAM:
     JSR     UI_PRINT_ALG_INFO
     LDAA    M_EDIT_PARAM_CURRENT
@@ -14959,6 +15054,7 @@ _PRINT_KEY_TRANSPOSE:
 ; This is because the key transpose is an unsigned value, with a range
 ; of -24 - 24.
     BLS     _PRINT_KEY_TRANSPOSE_VALUE
+
     LDAB    #24
     STAB    M_PATCH_BUFFER_EDIT_TRANSPOSE
 
@@ -14980,6 +15076,7 @@ _PRINT_EDIT_INFO?:
 _IS_VALID_ENTRY?:
     CMPB    #49
     BLS     _PRINT_EDIT_PARAM_INFO
+
     RTS
 
 ; Subtract 6 from the 'Edit Parameter String Index', and use this variable
@@ -14992,6 +15089,7 @@ _PRINT_EDIT_PARAM_INFO:
     ASLB
     CMPB    #44
     BNE     _LOAD_EDIT_STRING
+
     JMP     _PRINT_OSC_MODE
 
 ; Load the string for the currently selected edit parameter, and print to
@@ -15006,8 +15104,10 @@ _LOAD_EDIT_STRING:
     PULB
     CMPB    #48
     BCS     _LOAD_EDIT_PARAM_RANGE              ; If B < 48, branch.
+
     CMPB    #78
     BHI     _LOAD_EDIT_PARAM_RANGE
+
     LDAA    <M_EDIT_EG_RATE_LVL_SUB_FN
     LDX     <M_COPY_DEST_PTR
     ADDA    #49
@@ -15101,6 +15201,7 @@ _LOAD_NUMERIC_PARAM:
 _TEST_NUMERIC_PARAM:
     CMPB    M_EDIT_PARAM_MAX_VALUE
     BLS     _PRINT_NUMERIC_PARAM_VALUE
+
     LDAB    M_EDIT_PARAM_MAX_VALUE
     STAB    0,x
 
@@ -15118,6 +15219,7 @@ _TEST_BREAKPOINT_VALUE:
     JSR     MIDI_TX_SYSEX_OPERATOR_PARAM
     CMPB    #99
     BLS     _PRINT_BREAKPOINT
+
     CLRB
     STAB    0,x
 
@@ -15133,6 +15235,7 @@ _TEST_CURVE_VALUE:
     JSR     MIDI_TX_SYSEX_OPERATOR_PARAM
     CMPB    #3
     BLS     _PRINT_CURVE
+
     CLRB
     STAB    0,x
 
@@ -15152,6 +15255,7 @@ _TEST_LFO_WAVEFORM_VALUE:
 ; value is reset to 0, and stored.
     CMPB    #5
     BLS     _PRINT_LFO_WAVEFORM
+
     CLRB
     STAB    0,x
 
@@ -15250,6 +15354,7 @@ UI_PRINT_MUSICAL_NOTES:
 _FIND_OCTAVE_LOOP:
     SUBB    #12
     BMI     _WRITE_NOTE_NAME                    ; If B < 0, branch.
+
     INCA
     BRA     _FIND_OCTAVE_LOOP
 
@@ -15445,7 +15550,8 @@ TABLE_EDIT_PARAM_VALUES:
 ; ==============================================================================
 ; Note Name Table.
 ; ==============================================================================
-TABLE_NOTE_NAMES:    FCC "C C#D D#E F F#G G#A A#B "
+TABLE_NOTE_NAMES:
+    FCC "C C#D D#E F F#G G#A A#B "
 
 ; ==============================================================================
 ; EG Curve Name Table.
@@ -15591,26 +15697,31 @@ UI_FUNCTION_MODE:
     STAB    M_LAST_PRESSED_BTN
     CMPB    #BUTTON_2
     BNE     _IS_FN_5?
+
     JMP     _FN_2_MONO_POLY
 
 _IS_FN_5?:
     CMPB    #BUTTON_5
     BNE     _IS_FN_GT_14?
+
     JMP     _FN_5_PORTAMENTO
 
 _IS_FN_GT_14?:
     CMPB    #14
     BCS     _IS_FN_11?                          ; Branch if B < 14.
+
     JMP     _PRINT_MOD_SRC_FN_PARAM
 
 _IS_FN_11?:
     CMPB    #10
     BNE     _IS_FN_8?
+
     JMP     _FN_11_CRT_FORMAT
 
 _IS_FN_8?:
     CMPB    #7
     BNE     _FN_OTHERS_GET_STR
+
     JMP     _FN_8
 
 ; All other function control menu items are printed from this point.
@@ -15634,6 +15745,7 @@ _IS_FN_9?:
 _IS_FN_10?:
     CMPB    #9
     BEQ     _END_2
+
     CMPB    #10
     BEQ     _END_2
 
@@ -15667,9 +15779,11 @@ _IS_FN_PARAM_13?:
     LSRB
     CMPB    #13
     BEQ     _RESTORE_PARAM_PTR
+
     DECB
     CMPB    #6
     BEQ     _RESTORE_PARAM_PTR
+
     JSR     MIDI_TX_SYSEX_FN_PARAM
 
 _RESTORE_PARAM_PTR:
@@ -15731,6 +15845,7 @@ _IS_LAST_PRESSED_BUTTON_3?:
 _FN_3_PITCH_BEND_RANGE:
     TST     M_PITCH_BND_STEP
     BEQ     _PRINT_BEND_PARAM
+
     LDAB    #12
 
 ; Clears A, then converts ACCD to its ASCII numeric value, then prints
@@ -15873,6 +15988,7 @@ _IS_FN_8_SUB_2?:
 _FN_8_SUB_1:
     TST     M_MIDI_SYS_INFO_AVAIL
     BNE     _SYS_INFO_AVAIL
+
     LDX     #str_sysinfo_unavail
 
 _PRINT_SYS_INFO_STR_AND_EXIT:
@@ -15942,8 +16058,8 @@ TABLE_STR_PTRS_FN_PARAM_NAMES:
 ; MIDI Parameter Names Table.
 ; ==============================================================================
 TABLE_STR_PTRS_MIDI_CH:
-    FDB aMidiRecvCh
-    FDB aMidiTrnsCh
+    FDB str_midi_recv_ch
+    FDB str_midi_trans_ch
     FDB str_battery_volt
 
 ; ==============================================================================
@@ -16031,11 +16147,11 @@ TABLE_STR_PTRS_SUSTAIN_MODE:
 ; ==============================================================================
 ; MIDI Parameter Strings.
 ; ==============================================================================
-aMidiOmniOn:         FCC "Midi Omni : ON", 0
-aMidiRecvCh:         FCC "Midi Recv Ch", 0
-aMidiTrnsCh:         FCC "Midi Trns Ch", 0
-aMidiChInfo:         FCC "Midi Ch Info:", 0
-aMidiSyInfo:         FCC "Midi Sy Info:", 0
+str_midi_omni_on:    FCC "Midi Omni : ON", 0
+str_midi_recv_ch:    FCC "Midi Recv Ch", 0
+str_midi_trans_ch:   FCC "Midi Trns Ch", 0
+str_midi_ch_info:    FCC "Midi Ch Info:", 0
+str_midi_sys_info:   FCC "Midi Sy Info:", 0
 
 
 ; ==============================================================================
@@ -16473,36 +16589,49 @@ str_midi_transmit:   FCC " MIDI TRANSMIT ?", 0
 ; ==============================================================================
 
 LCD_INIT:
-    LDAA    #PPI_CONTROL_WORD_13
-
 ; Send 'Control Word 13' to the 8255 to set port A, and C to input, and
 ; port B to output.
+    LDAA    #PPI_CONTROL_WORD_13
+
     STAA    P_PPI_CTRL
+; Set RW bit of LCD.
     LDAA    #LCD_CTRL_RW
-    STAA    P_LCD_CTRL                          ; Set RW bit of LCD.
+    STAA    P_LCD_CTRL
+
+; The HD44780 datasheet instructs the user to wait for more than 15 ms after
+; VCC rises to 4.5V before sending the first command.
     JSR     DELAY_450_CYCLES
+
     LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
     JSR     LCD_WRITE_INSTRUCTION
     JSR     DELAY_90_CYCLES
+
     LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
     JSR     LCD_WRITE_INSTRUCTION
     JSR     DELAY_7_CYCLES
+
     LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
     JSR     LCD_WRITE_INSTRUCTION
+
     LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
     JSR     LCD_WRITE_INSTRUCTION
+
     LDAA    #LCD_INSTR_CLEAR
     JSR     LCD_WRITE_INSTRUCTION
+
     LDAA    #LCD_INSTR_SET_DIR
     JSR     LCD_WRITE_INSTRUCTION
+
     LDAA    #LCD_INSTR_SET_BLINK_OFF
     JSR     LCD_WRITE_INSTRUCTION
+
     JSR     LCD_CLEAR_STR_BUFFER
     JSR     LCD_PRINT_STR_BUFFER
-    LDX     #MSG_WELCOME
+
+    LDX     #str_welcome_message
     JMP     LCD_WRITE_LINE_1_THEN_PRINT
 
-MSG_WELCOME:         FCC "*  YAMAHA DX7  **  SYNTHESIZER *", 0
+str_welcome_message: FCC "*  YAMAHA DX7  **  SYNTHESIZER *", 0
 
 
 ; ==============================================================================
@@ -16555,6 +16684,7 @@ _PUT_STRING_LOOP:
     LDX     <M_COPY_DEST_PTR
     CMPA    0,x
     BEQ     _PUT_STRING_LOOP_INCREMENT
+
     PSHA
     TBA
     JSR     LCD_WRITE_INSTRUCTION               ; Set the cursor location.
@@ -16575,7 +16705,7 @@ _PUT_STRING_LOOP_INCREMENT:
 ; 2nd line (0xD0 = 0xC0 + 16).
     INCB
     CMPB    #$D0
-    BEQ     PUTSTRING_EXIT
+    BEQ     _LCD_PRINT_STR_BUFFER_EXIT
 
 ; If we're on the first line, and not at the end, loop.
 ; Otherwise, set cursor to the start of the 2nd line.
@@ -16586,7 +16716,7 @@ _PUT_STRING_LOOP_INCREMENT:
     LDAB    #LCD_INSTR_SET_CURSOR_TO_LINE_2
     BRA     _PUT_STRING_LOOP
 
-PUTSTRING_EXIT:
+_LCD_PRINT_STR_BUFFER_EXIT:
     RTS
 
 
@@ -16614,7 +16744,7 @@ LCD_WRITE_STR_TO_BUFFER:
     BMI     _EXIT_NON_ASCII
 
 ; Exit if an unprintable character is encountered.
-    CMPB    #$20                                ; ' '
+    CMPB    #$20
 
 ; Branch if *(IX) is 0x20 (ASCII space) or above.
     BCC     _WRITE_CHAR_TO_BUFFER
@@ -16622,6 +16752,7 @@ LCD_WRITE_STR_TO_BUFFER:
 
 _WRITE_CHAR_TO_BUFFER:
     BSR     LCD_WRITE_CHAR_TO_BUFFER
+
     INX
     BRA     LCD_WRITE_STR_TO_BUFFER
 
@@ -16678,8 +16809,8 @@ LCD_WRITE_LINE_1_THEN_PRINT:
 
 ; Store string buffer to dest register.
     STX     <M_COPY_DEST_PTR
-    PULX                                        ; Continues below.
-
+    PULX
+; Falls-through below.
 
 LCD_WRITE_BFR_AND_PRINT:
     BSR     LCD_WRITE_STR_TO_BUFFER
@@ -16731,6 +16862,7 @@ _LCD_CLEAR_STR_BUFFER_LOOP:
     INX
     DECB
     BNE     _LCD_CLEAR_STR_BUFFER_LOOP          ; if b > 0, loop.
+
     RTS
 
 
@@ -16750,10 +16882,9 @@ _LCD_CLEAR_STR_BUFFER_LOOP:
 ; ==============================================================================
 
 LCD_WRITE_INSTRUCTION:
-    LDAB    #PPI_CONTROL_WORD_5
-
 ; Send 'Control Word 5' to the 8255. This sets Port A, and B to outputs.
 ; This allows the sending of data to the LCD controller.
+    LDAB    #PPI_CONTROL_WORD_5
     STAB    P_PPI_CTRL
 
 ; Write the LCD instruction.
@@ -16795,11 +16926,11 @@ LCD_WRITE_INSTRUCTION:
 ; ==============================================================================
 
 LCD_WRITE_DATA:
-    LDAB    #PPI_CONTROL_WORD_5
-
 ; Send 'Control Word 5' to the 8255. This sets Port A, and B to outputs.
 ; This allows the sending of data to the LCD controller.
+    LDAB    #PPI_CONTROL_WORD_5
     STAB    P_PPI_CTRL
+
     LDAB    #LCD_CTRL_RS
     STAB    P_LCD_CTRL
     LDAB    #LCD_CTRL_E_RS
@@ -16855,6 +16986,7 @@ _HANDLER_TRAP_CLEAR_MEMORY_LOOP:
     INX
     DECB
     BNE     _HANDLER_TRAP_CLEAR_MEMORY_LOOP     ; If ACCB > 0, loop.
+
     LDAB    #150
     STAB    M_BATTERY_VOLTAGE
     JMP     HANDLER_RESET
@@ -16913,7 +17045,5 @@ VECTOR_IRQ:          FDB HANDLER_IRQ
 VECTOR_SWI:          FDB HANDLER_NMI
 VECTOR_NMI:          FDB HANDLER_NMI
 VECTOR_RESET:        FDB HANDLER_RESET
-; end of 'ROM'
-
 
     END
