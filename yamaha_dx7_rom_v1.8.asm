@@ -920,7 +920,7 @@ TEST_ENTRY:
     BSR     TEST_RESET_VOICE_PARAMS
 
     CLI
-    BRA     _TEST_ENTRY_BEGIN
+    BRA     TEST_ENTRY_BEGIN
 
 
 ; ==============================================================================
@@ -936,10 +936,10 @@ TEST_ENTRY:
 ; ==============================================================================
 
 TEST_RESET_VOICE_PARAMS:
-    LDAA    #$FF
-
 ; Reset portamento increment to instantaneous.
+    LDAA    #$FF
     STAA    <M_PORTA_RATE_INCREMENT
+
     LDD     #$100
     STD     M_MASTER_TUNE                       ; Reset master tune.
     CLR     M_MONO_POLY                         ; Reset synth to polyphonic.
@@ -963,12 +963,11 @@ _TEST_RESET_PITCH_EG_LOOP:
     RTS
 
 
-_TEST_ENTRY_BEGIN:
+TEST_ENTRY_BEGIN:
     JSR     TEST_RAM
     JSR     TEST_PRINT_STAGE_NAME
-
-; Falls-through to begin the full diagnostic test run.
     JSR     TEST_STAGE_1_TONE
+; Falls-through to begin the full diagnostic test run.
 
 
 ; ==============================================================================
@@ -1010,9 +1009,8 @@ TEST_MAIN_FUNCTIONS_1:
 
     RTS
 
-; If the last button was 'DOWN' decrement the test stage.
-
 _IS_LAST_BTN_NO?:
+; If the last button was 'DOWN' decrement the test stage.
     LDAB    M_LAST_INPUT_EVENT
     CMPB    #BUTTON_NO_DOWN
     BNE     _IS_LAST_BTN_YES?
@@ -1020,9 +1018,8 @@ _IS_LAST_BTN_NO?:
     JSR     TEST_STAGE_DECREMENT
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-; If the last button was 'UP' increment the test stage.
-
 _IS_LAST_BTN_YES?:
+; If the last button was 'UP' increment the test stage.
     CMPB    #BUTTON_YES_UP
     BNE     _IS_TEST_STG_7?
 
@@ -1101,7 +1098,6 @@ TEST_MAIN_FUNCTIONS_2:
     CMPA    #1
     BNE     _NOT_TEST_STAGE_2
 
-_TEST_STAGE_2:
     JSR     TEST_STAGE_2_LCD
     RTS
 
@@ -1133,16 +1129,14 @@ _IS_TEST_STAGE_3?:
 ; The following section deals with completing the A/D input tests.
 ; This code deals specifically with the sustain, and portamento
 ; pedal input.
-
-_TEST_STAGE_3_PEDAL_CHECK:
     JSR     MAIN_PORTA_SUS_PDL_STATE_UPDATE
     LDAA    M_TEST_STAGE_SUB
     CMPA    #40
     BNE     _TEST_STAGE_3_CHECK_PORTA_PDL
 
-_TEST_STAGE_3_CHECK_SUSTAIN_PDL:
+; Test the sustain pedal.
     LDAB    M_PEDAL_INPUT_STATUS
-    BITB    #1
+    BITB    #PEDAL_STATUS_SUSTAIN_ACTIVE
     BEQ     _END_TEST_MAIN_FUNCTIONS_2
 
 ; If the sustain pedal check was successful, advance the A/D test,
@@ -1519,18 +1513,16 @@ TEST_STAGE_3_SWITCHES:
 
     RTS
 
-; This flag is reset in the clear test flags function.
-
 _IS_TEST_ALREADY_COMPLETE?:
+; This flag is reset in the clear test flags function.
     LDAA    M_TEST_STAGE_SUB
     CMPA    #40
     BNE     _TEST_SWITCHES
 
     RTS
 
-; Print the current button number to the LED.
-
 _TEST_SWITCHES:
+; Print the current button number to the LED.
     STAA    M_PATCH_NUMBER_CURRENT
     JSR     LED_PRINT_PATCH_NUMBER
 
@@ -1588,10 +1580,9 @@ str_push_porta:      FCC "push portamanto", 0
 ; ==============================================================================
 
 TEST_STAGE_4_KBD:
-    LDAA    <M_LAST_ANALOG_INPUT_EVENT
-
 ; This comparison checks whether the last analog input event
 ; was '44', indicating a 'Key Down' event.
+    LDAA    <M_LAST_ANALOG_INPUT_EVENT
     CMPA    #44
     BEQ     _LAST_INPUT_IS_KEY_DOWN
 
@@ -1604,13 +1595,12 @@ _LAST_INPUT_IS_KEY_DOWN:
 
     RTS
 
+_IS_CORRECT_KEYPRESS_SEQUENCE?:
 ; Test if the keys were pressed in the correct sequence.
 ; This is performed by storing the next expected key number in 0x2580,
 ; This value, plus 36, is subtracted from the last key event recorded.
 ; If the resulting number is zero, that indicates the correct key in the
 ; sequence was pressed.
-
-_IS_CORRECT_KEYPRESS_SEQUENCE?:
     LDAA    <M_NOTE_KEY
     SUBA    #36
     SUBA    M_TEST_STAGE_SUB
@@ -1642,8 +1632,6 @@ _VELOCITY_IS_OK:
 ; Store the next key number in the patch number register, so
 ; that it is printed to the LED output. Clear the second line
 ; of the string buffer.
-
-_TEST_4_INCOMPLETE:
     STAA    M_PATCH_NUMBER_CURRENT
     JSR     LED_PRINT_PATCH_NUMBER
     JSR     LCD_CLEAR_STR_BUFFER_LINE_2
@@ -1670,15 +1658,13 @@ LCD_CLEAR_STR_BUFFER_LINE_2:
 
 ; Load ASCII space to ACCA.
     LDAA    #' '
-
 _LCD_CLEAR_STR_BUFFER_LINE_2_LOOP:
     STAA    0,x
     INX
     DECB
-    BNE     _LCD_CLEAR_STR_BUFFER_LINE_2_LOOP   ; If b > 0, loop.
+    BNE     _LCD_CLEAR_STR_BUFFER_LINE_2_LOOP
 
     RTS
-
 
 _PRINT_NOTES:
 ; Print to LCD Buffer Line 2 + 10.
@@ -1798,7 +1784,6 @@ TEST_STAGE_8_CRT_EEPROM:
     JSR     LCD_CLR_WRITE_LINE_2_THEN_PRINT
     JSR     TEST_STAGE_8_CRT_EEPROM_CLEAR
 
-_BEGIN_READ_WRITE_TEST:
     LDX     #P_CRT_START
 
 _CRT_RW_TEST_LOOP:
@@ -2020,7 +2005,7 @@ str_write_ok:        FCC "WRITE OK", 0
 
 
 ; ==============================================================================
-; TEST_2_LCD
+; TEST_STAGE_2_LCD
 ; ==============================================================================
 ; LOCATION: 0xC518
 ;
@@ -2030,84 +2015,79 @@ str_write_ok:        FCC "WRITE OK", 0
 ; ==============================================================================
 
 TEST_STAGE_2_LCD:
-    TST     $20A5
+; ==============================================================================
+; LOCAL TEMPORARY VARIABLES
+; ==============================================================================
+M_TEST_2_INITIALISED:                     equ  $20A5
+M_TEST_2_LED_PATTERN:                     equ  $209D
+M_TEST_2_LCD_PATTERN:                     equ  $2580
 
-; Branch if 0x20A5 is non-zero.
-; This value is used as a 'toggle' to decide whether the LCD screen
-; should be filled or cleared.
-    BNE     _FILL_SCREEN
+; ==============================================================================
+    TST     M_TEST_2_INITIALISED
+    BNE     _TEST_STAGE_2_INITIALISED
 
-; Load 0xFF into ACCB, which is used to clear the LED contents.
-; Load 0x20 into ACCA, which is an ASCII space value, used to clear
-; the LCD screen buffer contents.
     LDAB    #$FF
-    STAB    M_PATCH_NUMBER_CURRENT
-    LDAA    #' '
-    STAA    M_TEST_STAGE_SUB
-    STAA    M_PATCH_CURRENT_MODIFIED_FLAG
+    STAB    M_TEST_2_LED_PATTERN
 
-_PRINT_LED_PATTERN:
+    LDAA    #' '
+    STAA    M_TEST_2_LCD_PATTERN
+    STAA    M_TEST_2_INITIALISED
+
+_PRINT_TEST_PATTERNS:
+; Print the test pattern in ACCB to the LEDs, and the test pattern in ACCA
+; to the LCD screen.
     STAB    P_LED2
     STAB    P_LED1
 
-; Clears the LCD string buffer with the contents of ACCA.
-; This is either space, or 0xFF, as seen above.
-
-_PRINT_LCD_PATTERN:
     LDAB    #32
     LDX     #M_LCD_BUFFER_LN_1
-
-_CLEAR_LCD_LOOP:
+_WRITE_LCD_TEST_PATTERN_LOOP:
     STAA    0,x
     INX
     DECB
-    BNE     _CLEAR_LCD_LOOP                     ; If ACCB > 0, loop.
+    BNE     _WRITE_LCD_TEST_PATTERN_LOOP
 
-_WRITE_LCD_CONTENTS:
     LDX     #M_LCD_BUFFER_LN_1
     JSR     LCD_PRINT_STR_BUFFER
 
-; Create an artificial delay to 'blink' the LCD screen.
-
-_DELAY:
+; Create an artificial delay, so that the screen appears to 'blink', then exit.
     LDAB    #33
-
-DELAY_LOOP:
+_TEST_STAGE_2_DELAY_LOOP:
     JSR     DELAY_450_CYCLES
     DECB
-    BNE     DELAY_LOOP                          ; If ACCB > 0, loop.
+    BNE     _TEST_STAGE_2_DELAY_LOOP
 
     RTS
 
-_FILL_SCREEN:
-    LDAB    M_PATCH_NUMBER_CURRENT
-    BEQ     _TEST_2_RESET_LED
+_TEST_STAGE_2_INITIALISED:
+    LDAB    M_TEST_2_LED_PATTERN
+    BEQ     _RESET_LED_TEST_PATTERN
 
 ; Shift ACCB left one bit.
-; The effect of this operation is to increment the LED 'pattern'.
+; This will 'advance' the LED test pattern.
     ASLB
 
-_STORE_LED_CONTENTS:
-    STAB    M_PATCH_NUMBER_CURRENT
-    LDAA    M_TEST_STAGE_SUB
+_STORE_LED_TEST_PATTERN:
+    STAB    M_TEST_2_LED_PATTERN
 
+    LDAA    M_TEST_2_LCD_PATTERN
 _SET_LCD_CONTENTS:
-    CMPA    #32
-    BNE     _CLEAR_LCD
+    CMPA    #' '
+    BNE     _CLEAR_LCD_TEST_PATTERN
 
     LDAA    #$FF
 
 _STORE_LCD_CONTENTS:
-    STAA    M_TEST_STAGE_SUB
-    BRA     _PRINT_LED_PATTERN
+    STAA    M_TEST_2_LCD_PATTERN
+    BRA     _PRINT_TEST_PATTERNS
 
-_CLEAR_LCD:
+_CLEAR_LCD_TEST_PATTERN:
     LDAA    #' '
     BRA     _STORE_LCD_CONTENTS
 
-_TEST_2_RESET_LED:
+_RESET_LED_TEST_PATTERN:
     LDAB    #$FF
-    BRA     _STORE_LED_CONTENTS
+    BRA     _STORE_LED_TEST_PATTERN
 
 
 ; ==============================================================================
