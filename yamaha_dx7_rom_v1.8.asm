@@ -110,33 +110,41 @@ PPI_CONTROL_WORD_13:                      equ  %10011001
 
 ; ==============================================================================
 ; LCD Controller Constants.
-; The DX7 uses a KS0066U-compatible LCD module. These bitmasks are used to
+; The DX7 uses a HD44780-compatible LCD module. These bitmasks are used to
 ; interface with the LCD controller.
 ; ==============================================================================
 LCD_CTRL_RS:                              equ  1
 LCD_CTRL_RW:                              equ  2
-LCD_CTRL_RW_RS:                           equ  3
 
 ; RS=Low, RW=Low := Instruction Write.
 LCD_CTRL_E:                               equ  4
 LCD_CTRL_E_RS:                            equ  5
 LCD_CTRL_E_RW:                            equ  6
-LCD_BUSY_FLAG:                            equ  $80
+
+LCD_BUSY_LINE:                            equ  1 << 7
 
 ; ==============================================================================
 ; LCD Instruction Constants.
-; The DX7 uses a KS0066U-compatible LCD module. These constants are instruction
+; The DX7 uses a HD44780-compatible LCD module. These constants are instruction
 ; masks to be written to the LCD controller's instruction register.
 ; ==============================================================================
-LCD_INSTR_CLEAR:                          equ  1
-LCD_INSTR_SET_DIR:                        equ  %110
-LCD_INSTR_SET_BLINK_OFF:                  equ  %1100
-LCD_INSTR_SET_BLINK_ON:                   equ  %1101
-LCD_INSTR_SHIFT_CURSOR_LEFT:              equ  %10000
-LCD_INSTR_SHIFT_CURSOR_RIGHT:             equ  %10100
-LCD_INSTR_FUNC_SET_8BIT_2_LINE:           equ  %111000
-LCD_INSTR_SET_CURSOR_POSITION:            equ  1 << 7
+LCD_CLEAR_DISPLAY:                        equ  1
 
+LCD_SET_POSITION:                         equ  1 << 7
+
+LCD_DISPLAY_CONTROL:                      equ  1 << 3
+LCD_DISPLAY_ON:                           equ  1 << 2
+LCD_DISPLAY_BLINK:                        equ  1
+
+LCD_ENTRY_MODE_SET:                       equ  1 << 2
+LCD_ENTRY_MODE_INCREMENT:                 equ  1 << 1
+
+LCD_CURSOR_SHIFT:                         equ  1 << 4
+LCD_CURSOR_SHIFT_RIGHT:                   equ  1 << 2
+
+LCD_FUNCTION_SET:                         equ  1 << 5
+LCD_FUNCTION_DATA_LENGTH:                 equ  1 << 4
+LCD_FUNCTION_LINES:                       equ  1 << 3
 
 ; ==============================================================================
 ; General Bitmasks.
@@ -144,6 +152,7 @@ LCD_INSTR_SET_CURSOR_POSITION:            equ  1 << 7
 ; ==============================================================================
 VOICE_STATUS_SUSTAIN:                     equ  1
 VOICE_STATUS_ACTIVE:                      equ  %10
+
 SCI_RIE_RE_TE:                            equ  %111010
 SCI_RIE_RE_TIE_TE:                        equ  %111110
 
@@ -2709,7 +2718,7 @@ _BTN_MODE_EDIT:
 ; ==============================================================================
 
 LCD_SET_CURSOR_BLINK_OFF:
-    LDAA    #LCD_INSTR_SET_BLINK_OFF
+    LDAA    #(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON & ~LCD_DISPLAY_BLINK)
     JSR     LCD_WRITE_INSTRUCTION
     CLR     M_PATCH_NAME_EDIT_ACTIVE
 
@@ -3628,7 +3637,9 @@ _BTN_EDIT_DISABLE_INTERRUPTS:
 ; Clear timer and port 2 interrupts.
     CLR     IO_PORT_2_DATA
     CLR     TIMER_CTRL_STATUS
-    LDAA    #LCD_INSTR_SET_BLINK_OFF
+
+; Disable LCD blink.
+    LDAA    #(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON & ~LCD_DISPLAY_BLINK)
     JSR     LCD_WRITE_INSTRUCTION
 
 ; If we're not in the process of editing the synth parameters, exit.
@@ -4140,8 +4151,11 @@ PRINT_UI_AND_RETURN:
 BTN_MEMORY_PROTECT:
     LDAA    M_LAST_PRESSED_BTN
     STAA    <M_MEM_PROTECT_MODE
-    LDAA    #LCD_INSTR_SET_BLINK_OFF
+
+; Disable LCD blink.
+    LDAA    #(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON & ~LCD_DISPLAY_BLINK)
     JSR     LCD_WRITE_INSTRUCTION
+
     LDAA    #UI_MODE_SET_MEM_PROTECT
     BRA     BTN_SAVE_UI_MODE_AND_RETURN
 
@@ -6015,7 +6029,7 @@ _INPUT_ASCII_IS_BTN_PRESS_DOWN?:
     BSR     MIDI_TX_SYSEX_NAME_EDIT
 
 _INPUT_ASCII_SHIFT_LCD_CURSOR_LEFT:
-    LDAA    #LCD_INSTR_SHIFT_CURSOR_LEFT
+    LDAA    #LCD_CURSOR_SHIFT
 
 _INPUT_ASCII_UPDATE_LCD_CURSOR:
     JSR     LCD_WRITE_INSTRUCTION
@@ -6044,7 +6058,7 @@ _INPUT_ASCII_IS_BTN_PRESS_UP?:
     BSR     MIDI_TX_SYSEX_NAME_EDIT
 
 ; Shift the LCD cursor to the right.
-    LDAA    #LCD_INSTR_SHIFT_CURSOR_RIGHT
+    LDAA    #(LCD_CURSOR_SHIFT | LCD_CURSOR_SHIFT_RIGHT)
     BRA     _INPUT_ASCII_UPDATE_LCD_CURSOR
 
 
@@ -15637,15 +15651,15 @@ LCD_SET_CURSOR_TO_PATCH_NAME_AND_BLINK:
     PSHB
 
 ; Set the LCD cursor to start of line 2.
-    LDAA    #(LCD_INSTR_SET_CURSOR_POSITION + 0x40)
+    LDAA    #(LCD_SET_POSITION + 0x40)
     JSR     LCD_WRITE_INSTRUCTION
 
-    LDAA    #LCD_INSTR_SET_BLINK_ON
+    LDAA    #(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON | LCD_DISPLAY_BLINK)
     JSR     LCD_WRITE_INSTRUCTION
     PULB
 
 _SHIFT_CURSOR_LOOP:
-    LDAA    #LCD_INSTR_SHIFT_CURSOR_RIGHT
+    LDAA    #(LCD_CURSOR_SHIFT | LCD_CURSOR_SHIFT_RIGHT)
     PSHB
     JSR     LCD_WRITE_INSTRUCTION
     PULB
@@ -16616,27 +16630,27 @@ LCD_INIT:
 ; VCC rises to 4.5V before sending the first command.
     JSR     DELAY_450_CYCLES
 
-    LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
+    LDAA    #(LCD_FUNCTION_SET | LCD_FUNCTION_DATA_LENGTH | LCD_FUNCTION_LINES)
     JSR     LCD_WRITE_INSTRUCTION
     JSR     DELAY_90_CYCLES
 
-    LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
+    LDAA    #(LCD_FUNCTION_SET | LCD_FUNCTION_DATA_LENGTH | LCD_FUNCTION_LINES)
     JSR     LCD_WRITE_INSTRUCTION
     JSR     DELAY_7_CYCLES
 
-    LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
+    LDAA    #(LCD_FUNCTION_SET | LCD_FUNCTION_DATA_LENGTH | LCD_FUNCTION_LINES)
     JSR     LCD_WRITE_INSTRUCTION
 
-    LDAA    #LCD_INSTR_FUNC_SET_8BIT_2_LINE
+    LDAA    #(LCD_FUNCTION_SET | LCD_FUNCTION_DATA_LENGTH | LCD_FUNCTION_LINES)
     JSR     LCD_WRITE_INSTRUCTION
 
-    LDAA    #LCD_INSTR_CLEAR
+    LDAA    #LCD_CLEAR_DISPLAY
     JSR     LCD_WRITE_INSTRUCTION
 
-    LDAA    #LCD_INSTR_SET_DIR
+    LDAA    #(LCD_ENTRY_MODE_SET | LCD_ENTRY_MODE_INCREMENT)
     JSR     LCD_WRITE_INSTRUCTION
 
-    LDAA    #LCD_INSTR_SET_BLINK_OFF
+    LDAA    #(LCD_DISPLAY_CONTROL | LCD_DISPLAY_ON & ~LCD_DISPLAY_BLINK)
     JSR     LCD_WRITE_INSTRUCTION
 
     JSR     LCD_CLEAR
@@ -16683,7 +16697,7 @@ LCD_UPDATE:
 ; Load instruction to set LCD cursor position into B.
 ; This is incremented with each putchar operation, so that the position
 ; the command sets the cursor to stays correct.
-    LDAB    #LCD_INSTR_SET_CURSOR_POSITION
+    LDAB    #LCD_SET_POSITION
 
 _LCD_UPDATE_PRINT_CHAR_LOOP:
     PSHB
@@ -16724,17 +16738,17 @@ _LCD_UPDATE_ADVANCE_COPY_LOOP:
 
 ; Increment cursor position in ACCB, exit if we're at the end of the 2nd line.
     INCB
-    CMPB    #(LCD_INSTR_SET_CURSOR_POSITION + 0x40 + 16)
+    CMPB    #(LCD_SET_POSITION + 0x40 + 16)
     BEQ     _LCD_UPDATE_EXIT
 
 ; Check whether the end of the first line has been reached.
 ; If so, set the current position to the start of the second line.
 ; Otherwise continue copying the first line contents.
-    CMPB    #(LCD_INSTR_SET_CURSOR_POSITION + 16)
+    CMPB    #(LCD_SET_POSITION + 16)
     BNE     _LCD_UPDATE_PRINT_CHAR_LOOP
 
 ; This instruction sets the LCD cursor to start of the second line.
-    LDAB    #(LCD_INSTR_SET_CURSOR_POSITION + 0x40)
+    LDAB    #(LCD_SET_POSITION + 0x40)
     BRA     _LCD_UPDATE_PRINT_CHAR_LOOP
 
 _LCD_UPDATE_EXIT:
@@ -16962,9 +16976,11 @@ LCD_WRITE_DATA:
 
 ; Write the contents of ACCA to the LCD Data register.
     STAA    P_LCD_DATA
+
     LDAB    #LCD_CTRL_RS
     STAB    P_LCD_CTRL
-    LDAB    #LCD_CTRL_RW_RS
+
+    LDAB    #(LCD_CTRL_RW | LCD_CTRL_RS)
     STAB    P_LCD_CTRL
 
 ; Send 'Control Word 13' to the 8255. This sets Port A, and C to inputs.
@@ -16981,7 +16997,7 @@ LCD_WAIT_FOR_READY:
     LDAA    P_CRT_PEDALS_LCD
     LDAB    #LCD_CTRL_RW
     STAB    P_LCD_CTRL
-    ANDA    #LCD_BUSY_FLAG
+    ANDA    #LCD_BUSY_LINE
 
 ; If Busy flag bit is set in port C, loop.
     BNE     LCD_WAIT_FOR_READY
