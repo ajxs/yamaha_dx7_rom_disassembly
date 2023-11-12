@@ -123,7 +123,6 @@ LCD_CTRL_E_RS:                            equ  5
 LCD_CTRL_E_RW:                            equ  6
 LCD_BUSY_FLAG:                            equ  $80
 
-
 ; ==============================================================================
 ; LCD Instruction Constants.
 ; The DX7 uses a KS0066U-compatible LCD module. These constants are instruction
@@ -136,8 +135,7 @@ LCD_INSTR_SET_BLINK_ON:                   equ  %1101
 LCD_INSTR_SHIFT_CURSOR_LEFT:              equ  %10000
 LCD_INSTR_SHIFT_CURSOR_RIGHT:             equ  %10100
 LCD_INSTR_FUNC_SET_8BIT_2_LINE:           equ  %111000
-LCD_INSTR_SET_CURSOR_POSITION:            equ  %10000000
-LCD_INSTR_SET_CURSOR_TO_LINE_2:           equ  %11000000
+LCD_INSTR_SET_CURSOR_POSITION:            equ  1 << 7
 
 
 ; ==============================================================================
@@ -1172,7 +1170,7 @@ LCD_CLR_WRITE_LINE_2_THEN_PRINT:
     PSHX
     JSR     LCD_CLEAR_STR_BUFFER_LINE_2
     PULX
-    JMP     LCD_WRITE_LINE_2_THEN_PRINT
+    JMP     LCD_WRITE_STRING_TO_LINE_2_AND_UPDATE
 
 
 _TEST_STAGE_3_CHECK_PORTA_PDL:
@@ -1385,13 +1383,13 @@ str_not_complete:    FCC "NOT COMPLETED !", 0
 ; ==============================================================================
 
 TEST_PRINT_STAGE_NAME:
-    JSR     LCD_CLEAR_STR_BUFFER
+    JSR     LCD_CLEAR
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
 
 ; This string pointer points to ' TEST '.
     LDX     #(str_init_voice_test+$A)
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
 
 ; Check if this is test stage 2.
 ; Test two clears the LCD, so this is skipped.
@@ -1409,7 +1407,7 @@ _TEST_PRINT_STAGE_NAME_TO_BUFFER:
     LDX     #TABLE_TEST_STAGE_NAMES
     ABX
     LDX     0,x
-    JMP     LCD_WRITE_BFR_AND_PRINT
+    JMP     LCD_WRITE_STRING_TO_POINTER_AND_UPDATE
 
 ; ==============================================================================
 ; Test Stage Names.
@@ -1560,7 +1558,7 @@ _CORRECT_BUTTON_PRESSED:
 
     JSR     LED_PRINT_PATCH_NUMBER
     JSR     LCD_CLEAR_STR_BUFFER_LINE_2
-    JMP     LCD_PRINT_STR_BUFFER
+    JMP     LCD_UPDATE
 
 _TEST_SUSTAIN:
     LDX     #str_push_sustain
@@ -1679,7 +1677,7 @@ _PRINT_NOTES:
     LDAB    M_TEST_STAGE_SUB
     ADDB    #24
     JSR     UI_PRINT_MUSICAL_NOTES
-    JMP     LCD_PRINT_STR_BUFFER
+    JMP     LCD_UPDATE
 
 str_kbd_error:       FCC "KBD ERROR", 0
 str_kbd_ok:          FCC "KBD OK", 0
@@ -1721,7 +1719,7 @@ TEST_STAGE_5_AD:
     LDX     #STR_PTRS_TEST_AD
     ABX
     LDX     0,x
-    JSR     LCD_WRITE_LINE_2_THEN_PRINT
+    JSR     LCD_WRITE_STRING_TO_LINE_2_AND_UPDATE
     LDAB    $2582
 
 ; The following code uses the data source number as an input to a table of
@@ -2054,7 +2052,7 @@ _WRITE_LCD_TEST_PATTERN_LOOP:
     BNE     _WRITE_LCD_TEST_PATTERN_LOOP
 
     LDX     #M_LCD_BUFFER_NEXT
-    JSR     LCD_PRINT_STR_BUFFER
+    JSR     LCD_UPDATE
 
 ; Create an artificial delay, so that the screen appears to 'blink', then exit.
     LDAB    #33
@@ -2479,7 +2477,7 @@ _RESET_MEM_PROTECT:
 
 ; Resets the LCD screen buffers, initialises the LCD controller,
 ; then prints the synth's 'Welcome Message'.
-    JSR     LCD_CLEAR_STR_BUFFER
+    JSR     LCD_CLEAR
     JSR     LCD_INIT
     JSR     MIDI_INIT
     LDAA    #1
@@ -3687,7 +3685,7 @@ _PATCH_IN_CRT_MEMORY:
 
 _PRINT_NOT_READY_MSG:
     LDX     #str_crt_not_ready
-    JSR     LCD_WRITE_LINE_1_THEN_PRINT
+    JSR     LCD_WRITE_STRING_AND_UPDATE
     BRA     RESTORE_IRQ_STATUS_FROM_STACK
 
 _PATCH_IN_INT_MEMORY:
@@ -3767,7 +3765,7 @@ CRT_SET_PRINT_NOT_INSERTED:
 
 CRT_PRINT_NOT_INSERTED:
     LDX     #str_crt_not_ready
-    JMP     LCD_WRITE_LINE_1_THEN_PRINT
+    JMP     LCD_WRITE_STRING_AND_UPDATE
 
 _CRT_IS_INSERTED:
     CLR     M_INPUT_MODE
@@ -3966,11 +3964,11 @@ _BTN_STORE_IS_IN_COMPARE_MODE?:
     RTS
 
 _PRINT_EG_COPY:
-    JSR     LCD_CLEAR_STR_BUFFER
+    JSR     LCD_CLEAR
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_eg_copy_from_op
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDAA    #5
     SUBA    M_SELECTED_OPERATOR
     ADDA    #'1'
@@ -3979,7 +3977,7 @@ _PRINT_EG_COPY:
     INX
     STX     <M_COPY_DEST_PTR
     LDX     #str_eg_copy_to_op
-    JMP     LCD_WRITE_BFR_AND_PRINT
+    JMP     LCD_WRITE_STRING_TO_POINTER_AND_UPDATE
 
 str_eg_copy_to_op:   FCC " to OP?", 0
 
@@ -4386,7 +4384,7 @@ _PATCH_WRITE_TO_CRT:
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_cartridge_voice
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     JSR     PRINT_MSG_UNDER_WRITING
 
 _SERIALISE_PATCH_DATA:
@@ -5507,8 +5505,8 @@ _IS_YES_PRESSED?:
     RTS
 
 _MIDI_TRANSMIT:
-    JSR     LCD_CLEAR_STR_BUFFER
-    JSR     LCD_PRINT_STR_BUFFER
+    JSR     LCD_CLEAR
+    JSR     LCD_UPDATE
     JSR     MIDI_TX_SYSEX_DUMP_BULK
 
 _END_BTN_YES_NO_FN_8:
@@ -6127,9 +6125,9 @@ _INPUT_CHECK_TEST_BTN_COMBO_32_DOWN:
 
 _INPUT_CHECK_TEST_BTN_COMBO_PRINT:
     INC     M_TEST_MODE_BUTTON_CHECK
-    JSR     LCD_CLEAR_STR_BUFFER
+    JSR     LCD_CLEAR
     LDX     #str_test_entry
-    JMP     LCD_WRITE_LINE_1_THEN_PRINT
+    JMP     LCD_WRITE_STRING_AND_UPDATE
 
 
 ; ==============================================================================
@@ -8845,7 +8843,7 @@ PATCH_COPY_OPERATOR:
     LDX     #$2638                              ; LCD Buffer Line 2 + 9.
     STX     <M_COPY_DEST_PTR
     LDX     #str_to_op
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDAA    M_LAST_PRESSED_BTN
 
 ; Add ASCII '1' to the operator number, and write the target operator
@@ -8853,7 +8851,7 @@ PATCH_COPY_OPERATOR:
     ADDA    #'1'
     LDX     <M_COPY_DEST_PTR
     STAA    0,x
-    JMP     LCD_PRINT_STR_BUFFER
+    JMP     LCD_UPDATE
 
 
 ; ==============================================================================
@@ -14354,7 +14352,7 @@ LCD_WRITE_STR_TO_BUFFER_LINE_2:
     LDX     #M_LCD_BUFFER_NEXT_LINE_2
     STX     <M_COPY_DEST_PTR
     PULX
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
 
     RTS
 
@@ -14395,11 +14393,11 @@ _PRINT_VOICE_SOURCE_CARTRIDGE:
 
 _PRINT_VOICE_SOURCE:
     PSHX
-    JSR     LCD_CLEAR_STR_BUFFER
+    JSR     LCD_CLEAR
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     PULX
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
 
 ; Depending on whether the current patch is in internal, or cartridge memory,
 ; print either the 'INT', or 'CRT' prefix before the patch number.
@@ -14417,15 +14415,15 @@ _PRINT_PATCH_NUMBER_PREFIX:
     LDX     #M_LCD_BUFFER_NEXT_LINE_2
     STX     <M_COPY_DEST_PTR
     PULX
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
 
     LDX     #M_LCD_BUFFER_NEXT_LINE_2 + 3
-    JSR     LCD_PRINT_PATCH_NUMBER
+    JSR     LCD_PRINT_PATCH_NUMBER_TO_BUFFER
 
     LDX     #M_LCD_BUFFER_NEXT_LINE_2 + 6
     JSR     LCD_PRINT_PATCH_NAME_TO_BUFFER
 
-    JSR     LCD_PRINT_STR_BUFFER
+    JSR     LCD_UPDATE
 
 ; If the patch has been edited, put the LCD 'cursor' on the patch name, and
 ; enable the LCD cursor 'blink'.
@@ -15221,7 +15219,7 @@ _PRINT_NUMERIC_PARAM_VALUE:
     CLRA
     JSR     CONVERT_INT_TO_STR
     LDX     <M_COPY_DEST_PTR
-    JSR     LCD_WRITE_NUM_TO_STR_BFR
+    JSR     LCD_PRINT_NUMBER_TO_BUFFER
     BRA     _END_UI_EDIT_MODE
 
 ; Check that the breakpoint value is within the range 0-99. If not, the
@@ -15288,7 +15286,7 @@ _PRINT_OSC_SYNC:
     LDX     #TABLE_STR_PTRS_OFF_ON
     ABX
     LDX     0,x
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     BRA     _END_UI_EDIT_MODE
 
 _PRINT_OSC_MODE:
@@ -15306,10 +15304,10 @@ _PRINT_PARAMETER_NAME:
     ASLB
     ABX
     LDX     0,x
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
 
 _END_UI_EDIT_MODE:
-    JMP     LCD_PRINT_STR_BUFFER
+    JMP     LCD_UPDATE
 
 
 ; ==============================================================================
@@ -15623,7 +15621,7 @@ UI_EDIT_PATCH_NAME:
 
     LDX     <M_COPY_DEST_PTR
     JSR     LCD_PRINT_PATCH_NAME_TO_BUFFER
-    JSR     LCD_PRINT_STR_BUFFER
+    JSR     LCD_UPDATE
 
     LDX     #M_PATCH_BUFFER_EDIT_NAME
     STX     <M_COPY_SRC_PTR
@@ -15639,7 +15637,7 @@ LCD_SET_CURSOR_TO_PATCH_NAME_AND_BLINK:
     PSHB
 
 ; Set the LCD cursor to start of line 2.
-    LDAA    #LCD_INSTR_SET_CURSOR_TO_LINE_2
+    LDAA    #(LCD_INSTR_SET_CURSOR_POSITION + 0x40)
     JSR     LCD_WRITE_INSTRUCTION
 
     LDAA    #LCD_INSTR_SET_BLINK_ON
@@ -15690,7 +15688,7 @@ _PRINT_SAVE_MEM_MSG:
     LDX     #str_save_memory_all
 
 _END_UI_PRINT_SAVE_LOAD_MEM_MSG:
-    JMP     LCD_WRITE_LINE_1_THEN_PRINT
+    JMP     LCD_WRITE_STRING_AND_UPDATE
 
 
 ; ==============================================================================
@@ -15705,11 +15703,11 @@ _END_UI_PRINT_SAVE_LOAD_MEM_MSG:
 ; ==============================================================================
 
 UI_FUNCTION_MODE:
-    JSR     LCD_CLEAR_STR_BUFFER
+    JSR     LCD_CLEAR
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_function_ctrl
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDAB    M_FN_PARAM_CURRENT
     STAB    M_LAST_PRESSED_BTN
     CMPB    #BUTTON_2
@@ -15751,7 +15749,7 @@ _FN_OTHERS_GET_STR:
     LDX     0,x
 
 _FN_OTHERS:
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDAB    M_FN_PARAM_CURRENT
     BEQ     _PRINT_FN_1_TO_LCD_AND_EXIT
 
@@ -15843,7 +15841,7 @@ _END_2:
     BRA     _END_1
 
 _PRINT_FN_1_TO_LCD_AND_EXIT:
-    JMP     LCD_PRINT_STR_BUFFER
+    JMP     LCD_UPDATE
 
 _IS_LAST_PRESSED_BUTTON_6?:
     CMPA    #BUTTON_6
@@ -15872,7 +15870,7 @@ _PRINT_BEND_PARAM:
     CLRA
     JSR     CONVERT_INT_TO_STR
     LDX     <M_COPY_DEST_PTR
-    JSR     LCD_WRITE_NUM_TO_STR_BFR
+    JSR     LCD_PRINT_NUMBER_TO_BUFFER
 
 _END_1:
     BRA     _END_UI_FUNCTION_MODE
@@ -15891,7 +15889,7 @@ _PRINT_MOD_SRC_FN_PARAM:
     LDX     #TABLE_STR_PTRS_MOD_SRC_NAMES
     ABX
     LDX     0,x
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDX     <M_COPY_DEST_PTR
     INX
     STX     <M_COPY_DEST_PTR
@@ -15905,7 +15903,7 @@ _PRINT_MOD_SRC_FN_PARAM:
     LDX     #TABLE_STR_PTRS_MOD_PARAM_NAMES
     ABX
     LDX     0,x
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDX     <M_COPY_DEST_PTR
 
 ; Print the '=' sign to the LCD.
@@ -15984,10 +15982,10 @@ _FN_PARAMETER_DISABLED:
     LDX     #str_off
 
 _WRITE_LCD_AND_EXIT:
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
 
 _END_UI_FUNCTION_MODE:
-    JMP     LCD_PRINT_STR_BUFFER
+    JMP     LCD_UPDATE
 
 _FN_8:
     LDAA    M_EDIT_BTN_8_SUB_FN
@@ -16183,7 +16181,7 @@ str_midi_sys_info:   FCC "Midi Sy Info:", 0
 ; ==============================================================================
 
 UI_MEM_PROTECT_STATE:
-    JSR     LCD_CLEAR_STR_BUFFER
+    JSR     LCD_CLEAR
 
 ; Test whether the last button-press corresponded to the button for
 ; internal, or cartridge memory protection.
@@ -16202,7 +16200,7 @@ _WRITE_PROTECT_STATUS_TO_STR_BUFFER:
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     PULX
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDAA    <M_MEM_PROTECT_FLAGS
     PULB
     TSTB
@@ -16231,7 +16229,7 @@ _PRINT_STATUS_STRING:
     LDX     (#M_LCD_BUFFER_NEXT_LINE_2+$D)
     STX     <M_COPY_DEST_PTR
     PULX
-    JMP     LCD_WRITE_BFR_AND_PRINT
+    JMP     LCD_WRITE_STRING_TO_POINTER_AND_UPDATE
 
 
 ; ==============================================================================
@@ -16250,7 +16248,7 @@ UI_PRINT_ALG_INFO:
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_alg
-    JSR     LCD_WRITE_STR_TO_BUFFER
+    JSR     LCD_STRCPY
     LDAB    M_PATCH_BUFFER_EDIT_ALG
     CMPB    #31
     BLS     _PRINT_INFO
@@ -16264,7 +16262,7 @@ _PRINT_INFO:
     CLRA
     JSR     CONVERT_INT_TO_STR
     LDX     <M_COPY_DEST_PTR
-    JSR     LCD_WRITE_NUM_TO_STR_BFR
+    JSR     LCD_PRINT_NUMBER_TO_BUFFER
     LDAA    #' '
     STAA    0,x
     STAA    7,x
@@ -16371,7 +16369,7 @@ _OPERATOR_ENABLED:
 
 
 ; ==============================================================================
-; LCD_PRINT_PATCH_NUMBER
+; LCD_PRINT_PATCH_NUMBER_TO_BUFFER
 ; ==============================================================================
 ; LOCATION: 0xF97A
 ;
@@ -16380,12 +16378,11 @@ _OPERATOR_ENABLED:
 ;
 ; ARGUMENTS:
 ; Registers:
-; * IX:   The location in the LCD string buffer to print the current patch
-;         number to.
+; * IX:   The location to print the current patch number to.
 ;
 ; ==============================================================================
 
-LCD_PRINT_PATCH_NUMBER:
+LCD_PRINT_PATCH_NUMBER_TO_BUFFER:
     PSHX
     CLRA
 
@@ -16394,7 +16391,8 @@ LCD_PRINT_PATCH_NUMBER:
     INCB
     JSR     CONVERT_INT_TO_STR
     PULX
-    JSR     LCD_WRITE_NUM_TO_STR_BFR
+    JSR     LCD_PRINT_NUMBER_TO_BUFFER
+
     RTS
 
 
@@ -16404,13 +16402,12 @@ LCD_PRINT_PATCH_NUMBER:
 ; LOCATION: 0xF988
 ;
 ; DESCRIPTION:
-; Prints the name of the patch in the synth's 'Edit Buffer' to a specified
-; location in the synth's LCD buffer.
+; Prints the name of the patch currently loaded in the synth's 'Edit Buffer'
+; to an arbitrary buffer in memory.
 ;
 ; ARGUMENTS:
 ; Registers:
-; * IX:   The address of the memory location in the LCD buffer to write the
-;         patch name to.
+; * IX:   The address of the memory location to write the patch name to.
 ;
 ; ==============================================================================
 
@@ -16420,19 +16417,19 @@ LCD_PRINT_PATCH_NAME_TO_BUFFER:
     STX     <M_COPY_SRC_PTR
     LDAB    #10
 
-_PRINT_NAME_LOOP:
+_LCD_PRINT_PATCH_NAME_LOOP:
     LDX     <M_COPY_SRC_PTR
     PSHB
     PSHX
 
-; Test whether this param chg is echoed to SYSEX.
+; Test whether the printing of this character is a param change event that
+; should be echoed to SYSEX.
 ; If the synth is in any other input mode than 'Play' each character of
 ; the name will be sent via SYSEX.
     TST     M_INPUT_MODE
     BEQ     _PRINT_NAME_CHAR
 
-; This function call uses the 'IX' register to determine which
-; parameter is sent.
+; This function call uses the 'IX' register to determine which event is sent.
     JSR     MIDI_TX_SYSEX_PARAM_CHG
 
 _PRINT_NAME_CHAR:
@@ -16440,24 +16437,25 @@ _PRINT_NAME_CHAR:
     PULB
     LDAA    0,x
 
-_INCREMENT_SRC_PTR:
+; Increment the source pointer.
     INX
     STX     <M_COPY_SRC_PTR
 
-_WRITE_NAME_CHAR:
+; Write the character.
     LDX     <M_COPY_DEST_PTR
     STAA    0,x
 
-_INCREMENT_DEST_PTR:
+; Increment the destination pointer.
     INX
     STX     <M_COPY_DEST_PTR
     DECB
-    BNE     _PRINT_NAME_LOOP
+    BNE     _LCD_PRINT_PATCH_NAME_LOOP
+
     RTS
 
 
 ; ==============================================================================
-; LCD_WRITE_NUM_TO_STR_BFR
+; LCD_PRINT_NUMBER_TO_BUFFER
 ; ==============================================================================
 ; LOCATION: 0xF9AF
 ;
@@ -16467,30 +16465,29 @@ _INCREMENT_DEST_PTR:
 ; subroutine uses to store its results.
 ;
 ; ARGUMENTS:
+; Registers:
+; * IX:   A pointer to the buffer to print the number to.
+;
 ; Memory:
 ; * 0x217D: The most-significant digit to print.
 ; * 0x217C: The least-significant digit to print.
 ;
 ; ==============================================================================
 
-LCD_WRITE_NUM_TO_STR_BFR:
-    LDAA    M_PARSED_INT_TENS
-
+LCD_PRINT_NUMBER_TO_BUFFER:
 ; If the most significant digit of the number is not 0, branch.
+    LDAA    M_PARSED_INT_TENS
     BNE     _MOST_SIGNIFICANT_DIGIT_NON_ZERO
 
 ; Print a space to the buffer to take the place of the zero digit.
-
-_MOST_SIGNIFICANT_DIGIT_ZERO:
     LDAA    #$20                                ; ' '
     STAA    0,x
     INX
     BRA     _PRINT_SECOND_DIGIT
 
-; Start counting from ASCII '0', and store.
-
 _MOST_SIGNIFICANT_DIGIT_NON_ZERO:
-    ADDA    #$30                                ; '0'
+; Start counting from ASCII '0', and store.
+    ADDA    #'0'
     STAA    0,x
     INX
 
@@ -16498,7 +16495,7 @@ _PRINT_SECOND_DIGIT:
     LDAA    M_PARSED_INT_DIGITS
 
 ; Index the digit from ASCII '0', and store.
-    ADDA    #$30                                ; '0'
+    ADDA    #'0'
     STAA    0,x
     INX
     RTS
@@ -16642,25 +16639,25 @@ LCD_INIT:
     LDAA    #LCD_INSTR_SET_BLINK_OFF
     JSR     LCD_WRITE_INSTRUCTION
 
-    JSR     LCD_CLEAR_STR_BUFFER
-    JSR     LCD_PRINT_STR_BUFFER
+    JSR     LCD_CLEAR
+    JSR     LCD_UPDATE
 
     LDX     #str_welcome_message
-    JMP     LCD_WRITE_LINE_1_THEN_PRINT
+    JMP     LCD_WRITE_STRING_AND_UPDATE
 
 str_welcome_message: FCC "*  YAMAHA DX7  **  SYNTHESIZER *", 0
 
 
 ; ==============================================================================
-; LCD_PRINT_STR_BUFFER
+; LCD_UPDATE
 ; ==============================================================================
 ; LOCATION: 0xFE52
 ;
 ; DESCRIPTION:
-; Prints the contents of the device's 'string buffer' to the LCD screen.
-; This function incrementally copies the contents of the LCD string buffer
-; to the 'LCD current contents' buffer, while simultaneously writing each
-; character to the LCD screen memory.
+; Updates the LCD screen with the contents of the LCD 'Next Contents' buffer.
+; This compares the next contents against the current contents to determine
+; whether any copy needs to take place. If so, the current content buffer will
+; be updated also.
 ;
 ; ARGUMENTS:
 ; Memory:
@@ -16672,12 +16669,14 @@ str_welcome_message: FCC "*  YAMAHA DX7  **  SYNTHESIZER *", 0
 ;
 ; ==============================================================================
 
-LCD_PRINT_STR_BUFFER:
+LCD_UPDATE:
+; Load the address of the LCD's 'next', and 'current' contents buffers into
+; the copy source, and destination pointers.
+; Each character being copied is compared against the current LCD contents to
+; determine whether it needs to be copied. Identical characters are skipped.
     LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_SRC_PTR
 
-; Load the address of the LCD's content buffer into 0xFB. This buffer
-; is used to check whether the current char needs to be written.
     LDX     #M_LCD_BUFFER_CURRENT
     STX     <M_COPY_DEST_PTR
 
@@ -16686,7 +16685,7 @@ LCD_PRINT_STR_BUFFER:
 ; the command sets the cursor to stays correct.
     LDAB    #LCD_INSTR_SET_CURSOR_POSITION
 
-_PUT_STRING_LOOP:
+_LCD_UPDATE_PRINT_CHAR_LOOP:
     PSHB
 
 ; Load ACCA from address pointer in 0xF9.
@@ -16700,50 +16699,55 @@ _PUT_STRING_LOOP:
 ; in the LCD's current contents, it can be skipped.
     LDX     <M_COPY_DEST_PTR
     CMPA    0,x
-    BEQ     _PUT_STRING_LOOP_INCREMENT
+    BEQ     _LCD_UPDATE_ADVANCE_COPY_LOOP
 
+; Set the cursor location.
     PSHA
     TBA
-    JSR     LCD_WRITE_INSTRUCTION               ; Set the cursor location.
+    JSR     LCD_WRITE_INSTRUCTION
+
+; Write the character data.
     PULA
     PSHA
-    JSR     LCD_WRITE_DATA                      ; Write character data.
+    JSR     LCD_WRITE_DATA
     PULA
+
+; Store the character in the current LCD contents buffer.
     STAA    0,x
 
-_PUT_STRING_LOOP_INCREMENT:
+_LCD_UPDATE_ADVANCE_COPY_LOOP:
     PULB
 
 ; Increment the buffer end pointer, and store it back at 0xFB.
     INX
     STX     <M_COPY_DEST_PTR
 
-; Increment cursor position in ACCB, exit if we're at the end of the
-; 2nd line (0xD0 = 0xC0 + 16).
+; Increment cursor position in ACCB, exit if we're at the end of the 2nd line.
     INCB
-    CMPB    #$D0
-    BEQ     _LCD_PRINT_STR_BUFFER_EXIT
+    CMPB    #(LCD_INSTR_SET_CURSOR_POSITION + 0x40 + 16)
+    BEQ     _LCD_UPDATE_EXIT
 
-; If we're on the first line, and not at the end, loop.
-; Otherwise, set cursor to the start of the 2nd line.
-    CMPB    #$90
-    BNE     _PUT_STRING_LOOP
+; Check whether the end of the first line has been reached.
+; If so, set the current position to the start of the second line.
+; Otherwise continue copying the first line contents.
+    CMPB    #(LCD_INSTR_SET_CURSOR_POSITION + 16)
+    BNE     _LCD_UPDATE_PRINT_CHAR_LOOP
 
 ; This instruction sets the LCD cursor to start of the second line.
-    LDAB    #LCD_INSTR_SET_CURSOR_TO_LINE_2
-    BRA     _PUT_STRING_LOOP
+    LDAB    #(LCD_INSTR_SET_CURSOR_POSITION + 0x40)
+    BRA     _LCD_UPDATE_PRINT_CHAR_LOOP
 
-_LCD_PRINT_STR_BUFFER_EXIT:
+_LCD_UPDATE_EXIT:
     RTS
 
 
 ; ==============================================================================
-; LCD_WRITE_STR_TO_BUFFER
+; LCD_STRCPY
 ; ==============================================================================
 ; LOCATION: 0xFE8B
 ;
 ; DESCRIPTION:
-; Writes a null-terminated string to the device's LCD string buffer.
+; Writes a null-terminated string to an arbitrary buffer.
 ;
 ; ARGUMENTS:
 ; Registers:
@@ -16754,8 +16758,9 @@ _LCD_PRINT_STR_BUFFER_EXIT:
 ;
 ; ==============================================================================
 
-LCD_WRITE_STR_TO_BUFFER:
-    LDAB    0,x                                 ; Load char into ACCB.
+LCD_STRCPY:
+; Load char into ACCB.
+    LDAB    0,x
 
 ; Exit if the loaded byte is non-ASCII (Outside the 0-127 range).
     BMI     _EXIT_NON_ASCII
@@ -16765,13 +16770,14 @@ LCD_WRITE_STR_TO_BUFFER:
 
 ; Branch if *(IX) is 0x20 (ASCII space) or above.
     BCC     _WRITE_CHAR_TO_BUFFER
+
     RTS
 
 _WRITE_CHAR_TO_BUFFER:
     BSR     LCD_WRITE_CHAR_TO_BUFFER
 
     INX
-    BRA     LCD_WRITE_STR_TO_BUFFER
+    BRA     LCD_STRCPY
 
 _EXIT_NON_ASCII:
     RTS
@@ -16799,19 +16805,20 @@ LCD_WRITE_CHAR_TO_BUFFER:
     PSHX
     LDX     <M_COPY_DEST_PTR
     STAB    0,x
-    INX                                         ; Increment the buffer pointer.
+; Increment the buffer pointer.
+    INX
     STX     <M_COPY_DEST_PTR
     PULX
     RTS
 
 
 ; ==============================================================================
-; LCD_WRITE_LINE_1_THEN_PRINT
+; LCD_WRITE_STRING_AND_UPDATE
 ; ==============================================================================
 ; LOCATION: 0xFEA4
 ;
 ; DESCRIPTION:
-; Writes the null terminated string in IX to the first line of the LCD.
+; Prints the null terminated string in IX to the LCD.
 ;
 ; ARGUMENTS:
 ; Registers:
@@ -16819,7 +16826,7 @@ LCD_WRITE_CHAR_TO_BUFFER:
 ;
 ; ==============================================================================
 
-LCD_WRITE_LINE_1_THEN_PRINT:
+LCD_WRITE_STRING_AND_UPDATE:
     PSHX
 
 ; Store string buffer to dest register.
@@ -16829,13 +16836,15 @@ LCD_WRITE_LINE_1_THEN_PRINT:
     PULX
 ; Falls-through below.
 
-LCD_WRITE_BFR_AND_PRINT:
-    BSR     LCD_WRITE_STR_TO_BUFFER
-    JMP     LCD_PRINT_STR_BUFFER
+; Writes the string pointed to by IX to the buffer pointed to by the
+; copy destination pointer.
+LCD_WRITE_STRING_TO_POINTER_AND_UPDATE:
+    BSR     LCD_STRCPY
+    JMP     LCD_UPDATE
 
 
 ; ==============================================================================
-; LCD_WRITE_LINE_2_THEN_PRINT
+; LCD_WRITE_STRING_TO_LINE_2_AND_UPDATE
 ; ==============================================================================
 ; LOCATION: 0xFEB0
 ;
@@ -16849,16 +16858,16 @@ LCD_WRITE_BFR_AND_PRINT:
 ;
 ; ==============================================================================
 
-LCD_WRITE_LINE_2_THEN_PRINT:
+LCD_WRITE_STRING_TO_LINE_2_AND_UPDATE:
     PSHX
     LDX     #M_LCD_BUFFER_NEXT_LINE_2
     STX     <M_COPY_DEST_PTR
     PULX
-    BRA     LCD_WRITE_BFR_AND_PRINT
+    BRA     LCD_WRITE_STRING_TO_POINTER_AND_UPDATE
 
 
 ; ==============================================================================
-; LCD_CLEAR_STR_BUFFER
+; LCD_CLEAR
 ; ==============================================================================
 ; LOCATION: 0xFEB9
 ;
@@ -16867,18 +16876,16 @@ LCD_WRITE_LINE_2_THEN_PRINT:
 ;
 ; ==============================================================================
 
-LCD_CLEAR_STR_BUFFER:
+LCD_CLEAR:
     LDX     #M_LCD_BUFFER_NEXT
 
-; Load ASCII Space to ACCA.
     LDAA    #' '
     LDAB    #32
-
-_LCD_CLEAR_STR_BUFFER_LOOP:
+_LCD_CLEAR_LOOP:
     STAA    0,x
     INX
     DECB
-    BNE     _LCD_CLEAR_STR_BUFFER_LOOP          ; if b > 0, loop.
+    BNE     _LCD_CLEAR_LOOP
 
     RTS
 
@@ -16966,7 +16973,6 @@ LCD_WRITE_DATA:
     STAB    P_PPI_CTRL
 
 ; Wait until the LCD Busy flag clears.
-
 LCD_WAIT_FOR_READY:
     LDAB    #LCD_CTRL_E_RW
     STAB    P_LCD_CTRL
@@ -16979,6 +16985,7 @@ LCD_WAIT_FOR_READY:
 
 ; If Busy flag bit is set in port C, loop.
     BNE     LCD_WAIT_FOR_READY
+
     RTS
 
 
