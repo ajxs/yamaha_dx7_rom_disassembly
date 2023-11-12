@@ -24,6 +24,9 @@ SCI_CTRL_STATUS:                          equ  $11
 SCI_RECEIVE:                              equ  $12
 SCI_TRANSMIT:                             equ  $13
 
+TIMER_CTRL_EOCI                           equ  1 << 3
+
+SYSTEM_TICK_PERIOD:                       equ  3140
 
 ; ==============================================================================
 ; Peripheral Addresses.
@@ -454,10 +457,10 @@ M_LAST_PRESSED_BTN:                       equ  $20A2
 ; The parameter currently selected to be edited while in 'EDIT' mode.
 M_EDIT_PARAM_CURRENT:                     equ  $20A3
 
-; This variable holds both whether Internal, or cartridge memory is selected,
-; and the current 'UI Mode'. A value of 0 selects internal memory, a value of
-; 1 selects cartridge. The other 'UI Mode' values are used to determine
-; what specific function is being performed by the UI.
+; This variable contains both the current 'UI Mode', and whether internal,
+; or cartridge memory is currently selected.
+; This variable controls not only what menu is printed, but how the synth
+; responds to various user front-panel inputs.
 M_MEM_SELECT_UI_MODE:                     equ  $20A4
 
 ; This variable holds the current patch's 'modified' state.
@@ -697,15 +700,18 @@ M_TEST_LAST_ANALOG_INPUT:                 equ  $2582
 ; the memory location where the edited patch is copied to.
 M_PATCH_COMPARE_BUFFER:                   equ  $2584
 
-; The first line buffer for the synth's LCD screen. Length: 16.
-M_LCD_BUFFER_LN_1:                        equ  $261F
-M_LCD_BUFFER_LN_2:                        equ  $262F
+; This buffer stores the LCD screen's _next_ contents.
+; These are the contents that will be printed to the LCD screen the next time
+; the LCD screen is updated.
+M_LCD_BUFFER_NEXT:                        equ  $261F
+M_LCD_BUFFER_NEXT_LINE_2:                 equ  $262F
 
-; This buffer stores the LCD screen's current contents.
+; This buffer stores the LCD screen's _current_ contents.
 ; During writing the string buffer to the LCD, if the current char to be
-; written matches the one in there, the copy process is skipped.
-; Length: 32.
-M_LCD_BUFFER_CONTENTS:                    equ  $263F
+; written matches the one in there, the character copy process is skipped.
+M_LCD_BUFFER_CURRENT:                     equ  $263F
+M_LCD_BUFFER_CURRENT_LINE_2:              equ  $264F
+
 M_STACK_TOP:                              equ  $27FF
 
 
@@ -1380,7 +1386,7 @@ str_not_complete:    FCC "NOT COMPLETED !", 0
 
 TEST_PRINT_STAGE_NAME:
     JSR     LCD_CLEAR_STR_BUFFER
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
 
 ; This string pointer points to ' TEST '.
@@ -1654,7 +1660,7 @@ _TEST_4_COMPLETE:
 
 LCD_CLEAR_STR_BUFFER_LINE_2:
     LDAB    #16
-    LDX     #M_LCD_BUFFER_LN_2
+    LDX     #M_LCD_BUFFER_NEXT_LINE_2
 
 ; Load ASCII space to ACCA.
     LDAA    #' '
@@ -2040,14 +2046,14 @@ _PRINT_TEST_PATTERNS:
     STAB    P_LED1
 
     LDAB    #32
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
 _WRITE_LCD_TEST_PATTERN_LOOP:
     STAA    0,x
     INX
     DECB
     BNE     _WRITE_LCD_TEST_PATTERN_LOOP
 
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     JSR     LCD_PRINT_STR_BUFFER
 
 ; Create an artificial delay, so that the screen appears to 'blink', then exit.
@@ -2103,6 +2109,12 @@ _RESET_LED_TEST_PATTERN:
 ; ==============================================================================
 
 TEST_RAM:
+; ==============================================================================
+; LOCAL TEMPORARY VARIABLES
+; ==============================================================================
+M_TEST_RAM_ORIGIN:                        equ  $2183
+M_TEST_RAM_DEST:                          equ  $2185
+; ==============================================================================
     LDX     #M_EXTERNAL_RAM_START
     STX     <M_COPY_SRC_PTR
     LDX     #$27C0
@@ -2143,9 +2155,9 @@ _TEST_RAM_LOOP:
 
 TEST_RAM_COPY_BLOCK_TO_TEMP:
     LDX     <M_COPY_SRC_PTR
-    STX     $2183
+    STX     M_TEST_RAM_ORIGIN
     LDX     <M_COPY_DEST_PTR
-    STX     $2185
+    STX     M_TEST_RAM_DEST
     BSR     TEST_RAM_MEMCPY
     RTS
 
@@ -2163,9 +2175,9 @@ TEST_RAM_COPY_BLOCK_TO_TEMP:
 
 TEST_RAM_COPY_BLOCK_FROM_TEMP:
     LDX     <M_COPY_DEST_PTR
-    STX     $2183
+    STX     M_TEST_RAM_ORIGIN
     LDX     <M_COPY_SRC_PTR
-    STX     $2185
+    STX     M_TEST_RAM_DEST
     BSR     TEST_RAM_MEMCPY
     LDX     <M_COPY_SRC_PTR
     ABX
@@ -2194,10 +2206,10 @@ TEST_RAM_MEMCPY:
     CLRB
 
 _TEST_RAM_MEMCPY_LOOP:
-    LDX     $2183
+    LDX     M_TEST_RAM_ORIGIN
     ABX
     LDAA    0,x
-    LDX     $2185
+    LDX     M_TEST_RAM_DEST
     ABX
     STAA    0,x
 
@@ -2245,7 +2257,8 @@ _TEST_RAM_BLOCK_LOOP:
 ; Increment loop counter.
     INCB
     CMPB    #32
-    BNE     _TEST_RAM_BLOCK_LOOP                ; If ACCB < 32, loop.
+    BNE     _TEST_RAM_BLOCK_LOOP
+
     RTS
 
 
@@ -2275,6 +2288,7 @@ TEST_RAM_ADDRESS:
 ; Check whether the memory read back at *(IX) matches ACCA.
     CMPA    0,x
     BNE     _TEST_RAM_FAIL
+
     RTS
 
 _TEST_RAM_FAIL:
@@ -2292,7 +2306,7 @@ str_error_ram_ic:    FCC "ERROR RAM IC", 0
 
 
 ; ==============================================================================
-; HNDLR_RESET
+; HNDLER_RESET
 ; ==============================================================================
 ; LOCATION: 0xC5E5
 ;
@@ -2370,6 +2384,7 @@ _SET_EDIT_PARAM_ABOVE_5:
     ANDA    #31
     CMPA    #5
     BHI     _RESET_PATCH_INFO
+
     LDAA    #6
 
 _RESET_PATCH_INFO:
@@ -2384,6 +2399,7 @@ _RESET_PATCH_INFO:
     LDAA    #5
     CMPA    M_SELECTED_OPERATOR
     BHI     _RESET_SWITCH_MODE
+
     STAA    M_SELECTED_OPERATOR
 
 ; Checks that the synth's input mode is set to a valid value.
@@ -2397,9 +2413,8 @@ _RESET_SWITCH_MODE:
 
     STAA    M_INPUT_MODE
 
-; Resets the current UI mode. Ensures it has a valid value.
-
 _RESET_UI_MODE:
+; Resets the current UI mode. Ensures it has a valid value.
     LDAA    #UI_MODE_SET_MEM_PROTECT
     CMPA    M_MEM_SELECT_UI_MODE
     BHI     _RESET_LAST_PRESSED_BUTTON
@@ -2443,6 +2458,7 @@ _RESET_INT_RAM_BYTE:
 _RESET_MEM_PROTECT:
     LDAA    #%11000000
     STAA    <M_MEM_PROTECT_FLAGS
+
     LDAA    #$F7
     STAA    M_ERR_HANDLING_FLAG
 
@@ -2473,19 +2489,20 @@ _RESET_MEM_PROTECT:
     CLRA
     STAA    P_LED2
     STAA    P_LED1
-    TAP                                         ; Clear CCR.
+
+; Clear the processor's condition codes.
+    TAP
 
 ; Delay for 100x450 cycles to display the synth's welcome message.
     LDAB    #100
-
-_RESET_WELCOME_DELAY:
+_RESET_SHOW_WELCOME_MESSAGE_DELAY:
     JSR     DELAY_450_CYCLES
     DECB
-    BNE     _RESET_WELCOME_DELAY                ; If ACCB > 0, loop.
+    BNE     _RESET_SHOW_WELCOME_MESSAGE_DELAY
 
 ; Reset the timer-control/status register.
 ; Enable OCF IRQ.
-    LDAA    #%1000
+    LDAA    #TIMER_CTRL_EOCI
     STAA    <TIMER_CTRL_STATUS
     TST     M_INPUT_MODE
     BNE     _RESET_LOAD_PATCH_FROM_EDIT_BUFFER
@@ -2502,6 +2519,7 @@ _RESET_WELCOME_DELAY:
     STAA    M_LAST_PRESSED_BTN
     TST     M_MEM_SELECT_UI_MODE
     BEQ     _SWITCH_TO_PATCH
+
     JSR     MEMORY_SELECT_CRT
     TST     M_MEM_SELECT_UI_MODE
     BEQ     _RESET_BATTERY_CHECK
@@ -2522,7 +2540,8 @@ _RESET_BATTERY_CHECK:
     LDAA    P_CRT_PEDALS_LCD
     ANDA    #PEDAL_STATUS_MASK
     STAA    M_PEDAL_INPUT_STATUS_PREVIOUS
-    STAA    <M_PEDAL_INPUT_STATUS               ; Falls-through to main loop.
+    STAA    <M_PEDAL_INPUT_STATUS
+; Falls-through to main loop.
 
 
 ; ==============================================================================
@@ -3596,11 +3615,11 @@ _IS_NAME_EDIT_ACTIVE?:
 _SET_PATCH_EDIT_FLAG:
     LDAA    #1
     STAA    <M_EDIT_ASCII_MODE
+
     RTS
 
-; Save IRQ state.
-
 _BTN_EDIT_DISABLE_INTERRUPTS:
+; Save IRQ state.
     LDAA    <IO_PORT_2_DATA
     PSHA
 
@@ -3948,7 +3967,7 @@ _BTN_STORE_IS_IN_COMPARE_MODE?:
 
 _PRINT_EG_COPY:
     JSR     LCD_CLEAR_STR_BUFFER
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_eg_copy_from_op
     JSR     LCD_WRITE_STR_TO_BUFFER
@@ -4364,7 +4383,7 @@ _WRITE_SELECTED_CRT:
     JMP     CRT_FORMAT_CONFLICT
 
 _PATCH_WRITE_TO_CRT:
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_cartridge_voice
     JSR     LCD_WRITE_STR_TO_BUFFER
@@ -6357,7 +6376,8 @@ _VOICE_ADD_POLY_EXIT_NO_INACTIVE_VOICE_EVENTS:
 _VOICE_KEY_EVENT_OFF:
     LDAA    <TIMER_CTRL_STATUS
     PSHA
-    CLR     TIMER_CTRL_STATUS                   ; Clear timer interrupt.
+; Clear timer interrupt.
+    CLR     TIMER_CTRL_STATUS
 
 ; Store ACCB into the 'Buffer Offset' value. This value will be the
 ; current voice number * 2, used as an offset into the voice buffers.
@@ -6596,6 +6616,7 @@ _VOICE_ADD_POLY_LOAD_PITCH_TO_EGS:
 ; Reset the timer-control/status register to re-enable timer interrupts.
     PULA
     STAA    <TIMER_CTRL_STATUS
+
     RTS
 
 
@@ -10840,15 +10861,18 @@ PATCH_ACTIVATE:
 ; ==============================================================================
 
 HANDLER_OCF:
+; Clear OCF IRQ.
     CLR     TIMER_CTRL_STATUS
-    LDAA    <TIMER_CTRL_STATUS                  ; Clear OCF IRQ.
+
+; Clear the OCF interrupt flag by reading from the timer control register.
+    LDAA    <TIMER_CTRL_STATUS
 
 ; Reset the Free-Running counter.
     LDX     #0
     STX     <FREE_RUNNING_COUNTER
 
 ; Reset the Output Compare counter.
-    LDX     #3140
+    LDX     #SYSTEM_TICK_PERIOD
     STX     <OUTPUT_COMPARE
     CLI
 
@@ -10870,6 +10894,7 @@ _HANDLER_OCF_RX_ACTIVE_SENSING:
     LDAA    <M_MIDI_ACTV_SENS_RX_CTR
     CMPA    #250
     BNE     _HANDLER_OCF_PROCESS_MODULATION
+
     JSR     MIDI_ACTIVE_SENSING_STOP
     LDAA    #7
     STAA    P_DAC
@@ -10890,9 +10915,11 @@ _HANDLER_OCF_PROCESS_MODULATION:
 ; updating the EGS with modulation data.
     TST     M_MIDI_BUFFER_RX_PENDING
     BNE     _HANDLER_OCF_TX_ACTIVE_SENSING
+
     JSR     PORTA_PROCESS
     TST     M_PITCH_UPDATE_TOGGLE
     BPL     _HANDLER_OCF_TX_ACTIVE_SENSING
+
     JSR     PITCH_EG_PROCESS
     JSR     HANDLER_OCF_COMPARE_PATCH_LED_BLINK
 
@@ -10901,6 +10928,7 @@ _HANDLER_OCF_TX_ACTIVE_SENSING:
     LDAA    M_MIDI_ACTV_SENS_TX_CNTR
     CMPA    #50
     BLS     _HANDLER_OCF_LOAD_PITCH_MOD_TO_EGS
+
     CLR     M_MIDI_ACTV_SENS_TX_CNTR
     LDAA    #1
     STAA    M_MIDI_ACTV_SENS_TX_TRIGGER
@@ -10910,8 +10938,9 @@ _HANDLER_OCF_LOAD_PITCH_MOD_TO_EGS:
 
 ; Reset the Timer-Control/Status register.
 ; Re-enable OCF IRQ, and return from the interrupt.
-    LDAA    #%1000
+    LDAA    #TIMER_CTRL_EOCI
     STAA    <TIMER_CTRL_STATUS
+
     RTI
 
 
@@ -13767,10 +13796,13 @@ _IS_MSG_COUNT_4:
 _IS_SYSEX_PARAM?:
     LDAB    <M_MIDI_SYSEX_PARAM_GRP
     BEQ     _IS_SYSEX_FMT_PATCH?
+
     CMPB    #MIDI_SYSEX_PARAM_GRP_VOICE
     BEQ     _SYSEX_VOICE_DATA
+
     CMPB    #MIDI_SYSEX_PARAM_GRP_FUNCTION
     BEQ     _IS_SYSEX_DIAG_FUNCTION?
+
     BRA     _RESET_AND_EXIT
 
 _IS_SYSEX_FMT_PATCH?:
@@ -13781,13 +13813,14 @@ _IS_SYSEX_FMT_PERF?:
     CMPB    #MIDI_SYSEX_FMT_PERF
     BEQ     _SYSEX_RX_START
 
-; Check for INT memory protection prior to receiving single/bulk voice dump.
-
 _IS_INT_MEM_PROTECTED?:
+; Check for INT memory protection prior to receiving single/bulk voice dump.
     TIM     #MEM_PROTECT_INT, M_MEM_PROTECT_FLAGS
     BNE     _INT_MEM_PROTECTED
+
     TST     M_MIDI_SYS_INFO_AVAIL
     BEQ     _SYSEX_FORCE_END_PRE
+
     CLR     TIMER_CTRL_STATUS
 
 _SYSEX_RX_START:
@@ -13806,20 +13839,19 @@ _IS_SYSEX_DIAG_FUNCTION?:
     LDAB    <M_MIDI_INCOMING_DATA
     CMPB    #42
     BCS     _IS_PANEL_CTRL_MSG?                 ; If B <= 42, branch.
+
     BRA     _SYSEX_FUNCTION_DATA
 
+_INT_MEM_PROTECTED:
 ; In the event that the internal memory is protected, this prints the
 ; appropriate error message, then proceeds to force SYSEX message end.
-
-_INT_MEM_PROTECTED:
     JSR     PRINT_MSG_MEMORY_PROTECTED
 
 _SYSEX_FORCE_END_PRE:
     JMP     _SYSEX_FORCE_END
 
-; Are there five data byte already processed?
-
 _IS_MSG_COUNT_5:
+; Are there five data byte already processed?
     CMPB    #5
     BNE     _RESET_AND_EXIT
 
@@ -13828,6 +13860,7 @@ _IS_MSG_COUNT_5:
     LDAB    M_MIDI_SYSEX_FORMAT
     CMPB    #MIDI_SYSEX_FMT_PERF
     BNE     _IS_SYSEX_BULK?
+
     JMP     _SYSEX_PERF_RECEIVE
 
 _RESET_AND_EXIT:
@@ -13839,12 +13872,12 @@ _SYSEX_VOICE_DATA:
     TST     M_MIDI_SYS_INFO_AVAIL
     BEQ     _END_MIDI_PROCESS_RECEIVED_DATA
 
-; If we're currently in 'compare' mode, do nothing.
-
 _MIDI_PROCESS_DATA_IS_IN_COMPARE_MODE?:
+; If we're currently in 'compare' mode, do nothing.
     LDAB    M_PATCH_CURRENT_MODIFIED_FLAG
     CMPB    #EDITED_PATCH_IN_COMPARE
     BEQ     _END_MIDI_PROCESS_RECEIVED_DATA
+
     CLR     IO_PORT_2_DATA
     LDX     #M_PATCH_BUFFER_EDIT
     LDAB    <M_MIDI_INCOMING_DATA
@@ -13857,26 +13890,27 @@ _MIDI_PROCESS_DATA_IS_IN_COMPARE_MODE?:
     JSR     LED_PRINT_PATCH_NUMBER
 
 _ENABLE_IRQ_AND_EXIT:
+; Re-enable IRQ.
     LDAA    #1
-    STAA    <IO_PORT_2_DATA                     ; Re-enable IRQ.
+    STAA    <IO_PORT_2_DATA
 
 _END_MIDI_PROCESS_RECEIVED_DATA:
     CLR     M_MIDI_PROCESSED_DATA_COUNT
     CLR     M_MIDI_SUBSTATUS
+
     RTS
 
+_IS_PANEL_CTRL_MSG?:
 ; Any value under 42 indicates the transfer of a panel control event.
 ; At this point, ACCA still contains the incoming MIDI byte, 0xE1 contains
 ; the PREVIOUS byte.
 ; 0xE1 = Key number.
 ; ACCA = Key state: 00 for RELEASE, 0x7F for DOWN.
-
-_IS_PANEL_CTRL_MSG?:                            ; Disable IRQ.
+; Disable IRQ.
     CLR     IO_PORT_2_DATA
     TSTA
     BEQ     _SWITCH_UP
 
-_SWITCH_DOWN:
     LDAA    <M_MIDI_INCOMING_DATA
     JSR     INPUT_BTN_PRESSED
     BRA     _ENABLE_IRQ_AND_EXIT
@@ -13886,14 +13920,14 @@ _SWITCH_UP:
     JSR     INPUT_BTN_RELEASED
     BRA     _ENABLE_IRQ_AND_EXIT
 
+_SYSEX_FUNCTION_DATA:
 ; Parse the SYSEX function data.
 ; The parameter number is stored in the incoming data byte register.
 ; Refer to this site for the function parameter number reference:
 ; https://homepages.abdn.ac.uk/d.j.benson/pages/dx7/sysex-format.txt
-
-_SYSEX_FUNCTION_DATA:
     TST     M_MIDI_SYS_INFO_AVAIL
     BEQ     _SYSEX_ENABLE_IRQ_AND_EXIT
+
     CLR     IO_PORT_2_DATA                      ; Disable IRQ.
     LDAB    <M_MIDI_INCOMING_DATA
     SUBB    #64
@@ -13921,38 +13955,39 @@ _IS_SYSEX_BULK?:
     LDAB    <M_MIDI_SYSEX_RX_DATA_COUNT
     CMPB    #155
     BEQ     _SYSEX_PATCH_VALIDATE_CHECKSUM
+
     LDX     #M_PATCH_BUFFER_EDIT
     ABX
     STAA    0,x                                 ; Store in patch buffer.
     ADDA    <M_MIDI_SYSEX_CHECKSUM
     STAA    <M_MIDI_SYSEX_CHECKSUM              ; Add to checksum.
     INC     M_MIDI_SYSEX_RX_DATA_COUNT
+
     RTS
 
-; Validate the data transfer.
-
 _SYSEX_PATCH_VALIDATE_CHECKSUM:
+; Validate the data transfer.
     BSR     MIDI_SYSEX_VALIDATE_CHECKSUM
     BEQ     _SYSEX_PATCH_SUCCESS
 
-_SYSEX_PATCH_CHECKSUM_FAILURE:
+; Print the checksum error message, and exit.
     BSR     MIDI_PRINT_MSG_CHECKSUM_ERR
     BRA     _SYSEX_EXIT
 
+_SYSEX_PATCH_SUCCESS:
 ; Now that all of the patch data has been received, set the synth's 'Patch
 ; Edited' flag to indicate that the current patch has been modified, and
 ; proceed to parse the newly loaded data.
-
-_SYSEX_PATCH_SUCCESS:
     CLR     M_INPUT_MODE
     CLR     M_MEM_SELECT_UI_MODE
     LDAA    #EDITED_PATCH_IN_WORKING
     STAA    M_PATCH_CURRENT_MODIFIED_FLAG
+
+; Save the IRQ status, and mask interrupts.
     LDAB    <IO_PORT_2_DATA
     PSHB
-
-_SYSEX_PATCH_LOAD_DATA:
     CLR     IO_PORT_2_DATA
+
     JSR     PATCH_ACTIVATE
     CLR     M_PATCH_READ_OR_WRITE
     JSR     UI_PRINT_MAIN
@@ -13960,13 +13995,14 @@ _SYSEX_PATCH_LOAD_DATA:
     LDAA    #%111111
     STAA    M_PATCH_OPERATOR_STATUS_CURRENT
 
-_RESTORE_IRQ_STATUS:
+; Restore the IRQ status.
     PULB
     STAB    <IO_PORT_2_DATA
 
 _SYSEX_EXIT:
-    LDAB    #%1000
-    STAB    <TIMER_CTRL_STATUS                  ; Re-enable timer IRQ.
+; Re-enable timer IRQ.
+    LDAB    #TIMER_CTRL_EOCI
+    STAB    <TIMER_CTRL_STATUS
     BRA     _SYSEX_ENABLE_IRQ_AND_EXIT
 
 
@@ -13986,15 +14022,15 @@ MIDI_PRINT_MSG_CHECKSUM_ERR:
 
 str_check_sum_error: FCC "CHECK SUM ERROR!", 0
 
-; If this is a bulk voice data transfer, check whether we've received all of
-; the incoming data.
 
 _SYSEX_BULK_RECEIVE:
+; If this is a bulk voice data transfer, check whether we've received all of
+; the incoming data.
+; If all 4096 bytes have been received, branch.
     LDX     <M_MIDI_SYSEX_RX_COUNT
     CPX     #$1000
-
-; If all 4096 bytes have been received, branch.
     BEQ     _SYSEX_BULK_VALIDATE_CHECKSUM
+
     PSHA
     LDD     <M_MIDI_SYSEX_RX_COUNT
     ADDD    #M_INTERNAL_PATCH_BUFFERS
@@ -14008,11 +14044,11 @@ _SYSEX_BULK_RECEIVE:
     LDX     <M_MIDI_SYSEX_RX_COUNT
     INX
     STX     <M_MIDI_SYSEX_RX_COUNT              ; Increment received count.
+
     RTS
 
-; Use the accumulated 'checksum' value to validate the data transfer.
-
 _SYSEX_BULK_VALIDATE_CHECKSUM:
+; Use the accumulated 'checksum' value to validate the data transfer.
     BSR     MIDI_SYSEX_VALIDATE_CHECKSUM
     BEQ     _SYSEX_BULK_SUCCESS
 
@@ -14052,34 +14088,35 @@ MIDI_SYSEX_VALIDATE_CHECKSUM:
     ANDB    #%1111111
     STAB    <M_MIDI_SYSEX_CHECKSUM
     CMPA    <M_MIDI_SYSEX_CHECKSUM
+
     RTS
 
 
+_SYSEX_PERF_RECEIVE:
 ; If the format indicates that this SYSEX message is transferring
 ; performance data, download the 94 bytes to the synth.
 ; The synth uses the voice buffer memory location as a temporary storage
 ; for the performance data dump, as it will not be in use during the
 ; transfer process.
-
-_SYSEX_PERF_RECEIVE:
     LDAB    <M_MIDI_SYSEX_RX_DATA_COUNT
     CMPB    #94
     BEQ     _SYSEX_PERF_VALIDATE_CHECKSUM
+
     LDX     #M_MIDI_PERF_DATA_BUFFER
     ABX
     STAA    0,x
     ADDA    <M_MIDI_SYSEX_CHECKSUM
     STAA    <M_MIDI_SYSEX_CHECKSUM
     INC     M_MIDI_SYSEX_RX_DATA_COUNT
+
     RTS
 
-; Validate the checksum for the received bulk performance data dump.
-
 _SYSEX_PERF_VALIDATE_CHECKSUM:
+; Validate the checksum for the received bulk performance data dump.
     BSR     MIDI_SYSEX_VALIDATE_CHECKSUM
     BEQ     _SYSEX_PERF_SUCCESS
 
-_SYSEX_PERF_CHECKSUM_FAILURE:
+; Print the checksum error message, and exit.
     BSR     MIDI_PRINT_MSG_CHECKSUM_ERR
     BRA     _SYSEX_PERF_EXIT
 
@@ -14269,17 +14306,11 @@ str_midi_received:   FCC " MIDI RECEIVED", 0
 ; LCD screen output.
 ;
 ; ==============================================================================
-;
 
 UI_PRINT_MAIN:
+; Load a pointer to the appropriate UI function from this table, based upon
+; the current 'UI Mode', and jump to it.
     LDX     #TABLE_UI_FUNCTIONS
-
-; This variable contains both the current 'UI Mode', and whether internal,
-; or cartridge memory is currently selected.
-; This variable controls not only what menu is printed, but how the synth
-; responds to various user front-panel inputs.
-; This variable is used as an index into the menu function pointer table.
-; A function pointer is loaded from this table, and then jumped to.
     LDAB    M_MEM_SELECT_UI_MODE
     ASLB
     ABX
@@ -14320,10 +14351,11 @@ TABLE_UI_FUNCTIONS:
 
 LCD_WRITE_STR_TO_BUFFER_LINE_2:
     PSHX
-    LDX     #M_LCD_BUFFER_LN_2
+    LDX     #M_LCD_BUFFER_NEXT_LINE_2
     STX     <M_COPY_DEST_PTR
     PULX
     JSR     LCD_WRITE_STR_TO_BUFFER
+
     RTS
 
 
@@ -14340,70 +14372,70 @@ LCD_WRITE_STR_TO_BUFFER_LINE_2:
 ; ==============================================================================
 
 UI_PRINT_PATCH_INFO:
-    LDAA    #32
+; Clear the first line of the LCD string buffer.
+    LDAA    #' '
     LDAB    #16
-
-; Fill the first line of string buffer (16 chars) with ASCII spaces.
-    LDX     #M_LCD_BUFFER_LN_1
-
-_CLEAR_STR_BUFFER_LOOP:
+    LDX     #M_LCD_BUFFER_NEXT
+_CLEAR_LCD_LINE_1_LOOP:
     STAA    0,x
     INX
     DECB
-    BNE     _CLEAR_STR_BUFFER_LOOP
+    BNE     _CLEAR_LCD_LINE_1_LOOP
 
-_PRINT_VOICE_SOURCE:
+; Print the 'INTERNAL VOICE', or 'CARTRIDGE VOICE' string, based upon whether
+; internal, or cartridge memory is selected.
     LDAA    M_MEM_SELECT_UI_MODE
-    BNE     _CRT_VOICE
+    BNE     _PRINT_VOICE_SOURCE_CARTRIDGE
 
-_INT_VOICE:
     LDX     #str_internal_voice
-    BRA     _PRINT_LCD_LINE_1
+    BRA     _PRINT_VOICE_SOURCE
 
-_CRT_VOICE:
+_PRINT_VOICE_SOURCE_CARTRIDGE:
     LDX     #str_cartridge_voice
 
-_PRINT_LCD_LINE_1:
+_PRINT_VOICE_SOURCE:
     PSHX
     JSR     LCD_CLEAR_STR_BUFFER
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     PULX
     JSR     LCD_WRITE_STR_TO_BUFFER
 
-; Depending on whether the patch is in internal, or cartridge memory,
+; Depending on whether the current patch is in internal, or cartridge memory,
 ; print either the 'INT', or 'CRT' prefix before the patch number.
-
-_IS_PATCH_IN_INT_OR_CRT?:
     LDAA    M_PATCH_CURRENT_CRT_OR_INT
-    BNE     _PRINT_PATCH_NUM_PREFIX_CRT
+    BNE     _PRINT_PATCH_NUMBER_PREFIX_CRT
 
-_PRINT_PATCH_NUM_PREFIX_INT:
     LDX     #str_int
-    BRA     _SET_LCD_BUFFER_DEST
+    BRA     _PRINT_PATCH_NUMBER_PREFIX
 
-_PRINT_PATCH_NUM_PREFIX_CRT:
+_PRINT_PATCH_NUMBER_PREFIX_CRT:
     LDX     #str_crt
 
-_SET_LCD_BUFFER_DEST:
+_PRINT_PATCH_NUMBER_PREFIX:
     PSHX
-    LDX     #M_LCD_BUFFER_LN_2
+    LDX     #M_LCD_BUFFER_NEXT_LINE_2
     STX     <M_COPY_DEST_PTR
     PULX
     JSR     LCD_WRITE_STR_TO_BUFFER
-    LDX     #$2632                              ; Buffer Line 2 + 3.
+
+    LDX     #M_LCD_BUFFER_NEXT_LINE_2 + 3
     JSR     LCD_PRINT_PATCH_NUMBER
-    LDX     #$2635                              ; Buffer Line 2 + 6.
+
+    LDX     #M_LCD_BUFFER_NEXT_LINE_2 + 6
     JSR     LCD_PRINT_PATCH_NAME_TO_BUFFER
+
     JSR     LCD_PRINT_STR_BUFFER
 
-_HAS_PATCH_BEEN_EDITED?:
+; If the patch has been edited, put the LCD 'cursor' on the patch name, and
+; enable the LCD cursor 'blink'.
     LDAA    M_PATCH_CURRENT_MODIFIED_FLAG
     CMPA    #EDITED_PATCH_IN_WORKING
-    BNE     _PATCH_NOT_EDITED
-    JMP     SHIFT_LCD_CURSOR_6_RIGHT
+    BNE     _PATCH_NOT_MODIFIED
 
-_PATCH_NOT_EDITED:
+    JMP     LCD_SET_CURSOR_TO_PATCH_NAME_AND_BLINK
+
+_PATCH_NOT_MODIFIED:
     RTS
 
 
@@ -15266,7 +15298,7 @@ _PRINT_OSC_MODE:
 ; Ensure this value is either 0, or 1.
     ANDB    #1
     STAB    0,x
-    LDX     #M_LCD_BUFFER_LN_2
+    LDX     #M_LCD_BUFFER_NEXT_LINE_2
     STX     <M_COPY_DEST_PTR
     LDX     #TABLE_STR_PTRS_FREQ_MODE
 
@@ -15585,27 +15617,31 @@ TABLE_STR_PTRS_FREQ_MODE:
 
 UI_EDIT_PATCH_NAME:
     JSR     UI_PRINT_ALG_INFO
+
     LDX     #str_name
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
+
     LDX     <M_COPY_DEST_PTR
     JSR     LCD_PRINT_PATCH_NAME_TO_BUFFER
     JSR     LCD_PRINT_STR_BUFFER
+
     LDX     #M_PATCH_BUFFER_EDIT_NAME
     STX     <M_COPY_SRC_PTR
-    LDX     #$2655                              ; LCD Buffer Line 2 + 6.
-    STX     <M_COPY_DEST_PTR                    ; Falls-through below.
 
+    LDX     #M_LCD_BUFFER_CURRENT_LINE_2 + 6
+    STX     <M_COPY_DEST_PTR
+; Falls-through below.
 
-; The following subroutine shifts the LCD cursor 6 'cells' to the right,
+LCD_SET_CURSOR_TO_PATCH_NAME_AND_BLINK:
+; The following code shifts the LCD cursor 6 'cells' to the right,
 ; to align it correctly prior to printing the rest of the patch information.
-
-SHIFT_LCD_CURSOR_6_RIGHT:
     LDAB    #6
     PSHB
 
 ; Set the LCD cursor to start of line 2.
     LDAA    #LCD_INSTR_SET_CURSOR_TO_LINE_2
     JSR     LCD_WRITE_INSTRUCTION
+
     LDAA    #LCD_INSTR_SET_BLINK_ON
     JSR     LCD_WRITE_INSTRUCTION
     PULB
@@ -15617,6 +15653,7 @@ _SHIFT_CURSOR_LOOP:
     PULB
     DECB
     BNE     _SHIFT_CURSOR_LOOP
+
     RTS
 
 
@@ -15669,7 +15706,7 @@ _END_UI_PRINT_SAVE_LOAD_MEM_MSG:
 
 UI_FUNCTION_MODE:
     JSR     LCD_CLEAR_STR_BUFFER
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_function_ctrl
     JSR     LCD_WRITE_STR_TO_BUFFER
@@ -16162,7 +16199,7 @@ _CRT_SELECTED:
 
 _WRITE_PROTECT_STATUS_TO_STR_BUFFER:
     PSHX
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     PULX
     JSR     LCD_WRITE_STR_TO_BUFFER
@@ -16191,7 +16228,7 @@ _PRINT_STATUS_STRING:
     PSHX
 
 ; Print to the end of the second line of the string buffer.
-    LDX     (#M_LCD_BUFFER_LN_2+$D)
+    LDX     (#M_LCD_BUFFER_NEXT_LINE_2+$D)
     STX     <M_COPY_DEST_PTR
     PULX
     JMP     LCD_WRITE_BFR_AND_PRINT
@@ -16210,7 +16247,7 @@ _PRINT_STATUS_STRING:
 ; ==============================================================================
 
 UI_PRINT_ALG_INFO:
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
     LDX     #str_alg
     JSR     LCD_WRITE_STR_TO_BUFFER
@@ -16636,12 +16673,12 @@ str_welcome_message: FCC "*  YAMAHA DX7  **  SYNTHESIZER *", 0
 ; ==============================================================================
 
 LCD_PRINT_STR_BUFFER:
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_SRC_PTR
 
 ; Load the address of the LCD's content buffer into 0xFB. This buffer
 ; is used to check whether the current char needs to be written.
-    LDX     #M_LCD_BUFFER_CONTENTS
+    LDX     #M_LCD_BUFFER_CURRENT
     STX     <M_COPY_DEST_PTR
 
 ; Load instruction to set LCD cursor position into B.
@@ -16774,21 +16811,21 @@ LCD_WRITE_CHAR_TO_BUFFER:
 ; LOCATION: 0xFEA4
 ;
 ; DESCRIPTION:
-; Writes the 1nd line string buffer with the null terminated string in IX, then
-; prints the string buffer to the LCD.
+; Writes the null terminated string in IX to the first line of the LCD.
 ;
 ; ARGUMENTS:
 ; Registers:
-; * IX:   The string to print to the 2nd line of the LCD.
+; * IX:   The string to print to the 1st line of the LCD.
 ;
 ; ==============================================================================
 
 LCD_WRITE_LINE_1_THEN_PRINT:
     PSHX
-    LDX     #M_LCD_BUFFER_LN_1
 
 ; Store string buffer to dest register.
+    LDX     #M_LCD_BUFFER_NEXT
     STX     <M_COPY_DEST_PTR
+
     PULX
 ; Falls-through below.
 
@@ -16814,7 +16851,7 @@ LCD_WRITE_BFR_AND_PRINT:
 
 LCD_WRITE_LINE_2_THEN_PRINT:
     PSHX
-    LDX     #M_LCD_BUFFER_LN_2
+    LDX     #M_LCD_BUFFER_NEXT_LINE_2
     STX     <M_COPY_DEST_PTR
     PULX
     BRA     LCD_WRITE_BFR_AND_PRINT
@@ -16831,7 +16868,7 @@ LCD_WRITE_LINE_2_THEN_PRINT:
 ; ==============================================================================
 
 LCD_CLEAR_STR_BUFFER:
-    LDX     #M_LCD_BUFFER_LN_1
+    LDX     #M_LCD_BUFFER_NEXT
 
 ; Load ASCII Space to ACCA.
     LDAA    #' '
