@@ -67,6 +67,29 @@ def check_for_duplicate_labels(file_text):
     return label_count
 
 
+def check_for_unnecessary_labels(file_text):
+    """
+    Search the source text for labels that are defined, but not used.
+    """
+
+    unnecessary_labels = []
+    # The regex to use when searching for all labels.
+    REGEX_LABEL = r"^({}?[\w?]+):".format(LOCAL_LABEL_PREFIX)
+
+    # Iterate over all labels, searching for labels that are only found once.
+    all_labels = re.findall(REGEX_LABEL, file_text, flags=re.MULTILINE)
+    for label_name in all_labels:
+        start = 0
+        count = 0
+        while start := file_text.find(label_name, start) + 1:
+            count += 1
+
+        if count == 1:
+            unnecessary_labels.append(label_name)
+
+    return unnecessary_labels
+
+
 def lint_file():
     """
     Lints the input file.
@@ -103,6 +126,11 @@ def lint_file():
                         f"Error: Duplicate label: '{label_name}' - ",
                         f"Encountered {label_count[label_name]} times."
                     )
+
+            unnecessary_labels = check_for_unnecessary_labels(source_text)
+            for label_name in unnecessary_labels:
+                error_count = error_count + 1
+                print(f"Error: Unnecessary label: '{label_name}'")
 
             print(f"Found {error_count} errors in total.")
 
