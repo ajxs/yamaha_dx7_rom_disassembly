@@ -6112,30 +6112,30 @@ INPUT_CHECK_TEST_BTN_COMBO:
     LDAB    M_LAST_PRESSED_BTN
     CMPB    #BUTTON_16
     BEQ     _INPUT_CHECK_TEST_BTN_COMBO_16_DOWN
+
     CMPB    #BUTTON_32
     BEQ     _INPUT_CHECK_TEST_BTN_COMBO_32_DOWN
+
     RTS
 
-; If button 16 is down, set the test mode combination flag to '1'.
-
 _INPUT_CHECK_TEST_BTN_COMBO_16_DOWN:
+; If button 16 is down, set the test mode combination flag to '1'.
     INC     M_TEST_MODE_BUTTON_CHECK
     RTS
 
+_INPUT_CHECK_TEST_BTN_COMBO_32_DOWN:
 ; If button 32 is currently down, check the test mode combination flag to
 ; determine the status of button 16. If this is '1', then proceed to
 ; display the test mode entry message.
-
-_INPUT_CHECK_TEST_BTN_COMBO_32_DOWN:
     LDAA    <M_TEST_MODE_BUTTON_CHECK
     CMPA    #1
     BEQ     _INPUT_CHECK_TEST_BTN_COMBO_PRINT
+
     RTS
 
+_INPUT_CHECK_TEST_BTN_COMBO_PRINT:
 ; If this point is reached, the test button combination is active.
 ; Print the test mode entry message.
-
-_INPUT_CHECK_TEST_BTN_COMBO_PRINT:
     INC     M_TEST_MODE_BUTTON_CHECK
     JSR     LCD_CLEAR
     LDX     #str_test_entry
@@ -6174,6 +6174,7 @@ _VOICE_SEARCH_FOR_ACTIVE_KEY_EVENT_LOOP:
     LDAA    1,x
     ANDA    #%11
     BNE     _VOICE_SEARCH_FOR_ACTIVE_KEY_EVENT_END
+
     INX
     INX
     DECB
@@ -6193,13 +6194,12 @@ _VOICE_SEARCH_FOR_ACTIVE_KEY_EVENT_END:
 ; The main keyboard 'Key Down' event handler.
 ; This subroutine sends a MIDI 'Note On' event, and then initiates playing the
 ; triggering note on the synthesiser.
-; This function falls-through to the voice add function.
 ;
 ; ==============================================================================
 
 INPUT_KEY_DOWN:
     JSR     MIDI_TX_NOTE_ON
-
+; Falls-through below to the voice add function.
 
 ; ==============================================================================
 ; VOICE_ADD
@@ -6229,6 +6229,7 @@ VOICE_ADD:
 ; If the result is > 127, set to 127.
     CMPB    #127
     BLS     _VOICE_ADD_GET_KEY_FREQ
+
     LDAB    #127
 
 _VOICE_ADD_GET_KEY_FREQ:
@@ -6248,6 +6249,7 @@ _VOICE_ADD_GET_KEY_FREQ:
 _VOICE_ADD_IS_SYNTH_MONO?:
     LDAB    M_MONO_POLY
     BNE     _VOICE_ADD_SYNTH_IS_MONO
+
     JMP     VOICE_ADD_POLY
 
 _VOICE_ADD_SYNTH_IS_MONO:
@@ -6278,6 +6280,7 @@ VOICE_ADD_SET_KEY_TRANSPOSE:
 ; Is this value below the maximum of 84? Otherwise, clamp.
     CMPB    #84
     BLS     _VOICE_ADD_SET_KEY_TRANSPOSE_SAVE
+
     LDAB    #84
     BRA     _VOICE_ADD_SET_KEY_TRANSPOSE_SAVE
 
@@ -6288,7 +6291,7 @@ _VOICE_ADD_SET_KEY_TRANSPOSE_SAVE:
     SUBB    #36
     STAB    M_PATCH_BUFFER_EDIT_TRANSPOSE
 
-; @TODO: What does this do?
+; Set the UI to the previously edited parameter.
     LDAA    M_EDIT_PARAM_CURRENT
     STAA    M_LAST_PRESSED_BTN
     JSR     UI_PRINT_MAIN
@@ -6376,8 +6379,6 @@ _VOICE_ADD_POLY_FIND_INACTIVE_VOICE_LOOP:
     BNE     _VOICE_ADD_POLY_FIND_INACTIVE_VOICE_LOOP
 
 ; If this point is reached, it means no inactive voices have been found.
-
-_VOICE_ADD_POLY_EXIT_NO_INACTIVE_VOICE_EVENTS:
     RTS
 
 ; The following section will send a 'Key Off' event to the EGS chip's
@@ -6452,9 +6453,8 @@ _VOICE_ADD_POLY_PORTA_FOLLOW_UPDATE_LOOP:
     BSR     VOICE_ADD_POLY_GET_14_BIT_LOG_FREQ
     STD     0,x
 
-; Increment the voice status array pointer.
-
 __VOICE_ADD_POLY_PORTA_FOLLOW_UPDATE_PTR:
+; Increment the voice status array pointer.
     LDAB    #2
     LDX     <VA_VOICE_STATUS_PTR
     ABX
@@ -6466,16 +6466,17 @@ __VOICE_ADD_POLY_PORTA_FOLLOW_UPDATE_PTR:
     STX     <VA_VOICE_FREQ_TARGET_PTR
     DEC     VA_VOICE_INDEX
     BNE     _VOICE_ADD_POLY_PORTA_FOLLOW_UPDATE_LOOP
+
     BRA     _VOICE_ADD_POLY_SEND_KEY_EVENT
 
+_VOICE_ADD_POLY_NO_PORTAMENTO:
 ; In the event that there is no portamento, the 'last' note frequency is set
 ; to the current target pitch. The effect of this is that when the
 ; portamento, and glissando buffers are set, no pitch transition will occur.
-
-_VOICE_ADD_POLY_NO_PORTAMENTO:
     BSR     VOICE_ADD_POLY_GET_14_BIT_LOG_FREQ
     STD     <VA_VOICE_FREQ_LAST
 
+_SET_PORTA_GLISS_PITCH:
 ; If portamento is currently enabled, the 'current' portamento, and
 ; glissando pitches for the new note will be set to the target pitch
 ; of the 'last' note pressed.
@@ -6484,8 +6485,6 @@ _VOICE_ADD_POLY_NO_PORTAMENTO:
 ; above. The effect of this is that there will be no pitch transition.
 ; After these buffers have been set, the 'new' current pitch is set, which
 ; will be loaded to the EGS below.
-
-_SET_PORTA_GLISS_PITCH:
     JSR     VOICE_ADD_POLY_SET_PORTA_FREQ
     STD     <VA_VOICE_FREQ_NEW
 
@@ -6559,13 +6558,12 @@ VOICE_ADD_POLY_SET_PORTA_FREQ:
     RTS
 
 
+_VOICE_ADD_POLY_SEND_KEY_EVENT:
 ; Send the 'Key Event' for the current voice.
 ; This is a 16-bit value in the format: (Key_Number << 8) | Flags.
 ; The flags field has two bits:
 ;  * '0b10' indicates this voice is actively playing a note.
 ;  * '0b1' indicates sustain is active.
-
-_VOICE_ADD_POLY_SEND_KEY_EVENT:
     LDX     #M_VOICE_STATUS
     LDAB    <VA_BUFFER_OFFSET
     ABX
@@ -6599,10 +6597,9 @@ _VOICE_ADD_POLY_SEND_KEY_EVENT:
     STD     <M_LFO_DELAY_ACCUMULATOR
     CLR     M_LFO_FADE_IN_SCALE_FACTOR
 
+_VOICE_ADD_POLY_IS_LFO_SYNC_ON?:
 ; If 'LFO Key Sync' is enabled, reset the LFO phase accumulator to its
 ; maximum positive value to coincide with the 'Key On' event.
-
-_VOICE_ADD_POLY_IS_LFO_SYNC_ON?:
     LDAA    M_PATCH_BUFFER_EDIT_LFO_SYNC
     BEQ     _VOICE_ADD_POLY_LOAD_PITCH_TO_EGS
     LDD     #$7FFF
@@ -6640,13 +6637,12 @@ _VOICE_ADD_POLY_LOAD_PITCH_TO_EGS:
 ; This subroutine sends a MIDI 'Note On' event (which will have a velocity of
 ; zero, indicating 'Note Off'), and then initiates removing the voice related
 ; to the released note on the synthesiser.
-; This function falls-through to the voice remove function.
 ;
 ; ==============================================================================
 
 INPUT_KEY_UP:
     JSR     MIDI_TX_NOTE_ON
-
+; Falls-through to the voice remove function.
 
 ; ==============================================================================
 ; VOICE_REMOVE
@@ -6694,14 +6690,11 @@ _FIND_KEY_EVENT_LOOP:
     BNE     _ITERATE_LOOP
 
 ; Check if the matching key event is active.
-
-_IS_KEY_EVENT_ACTIVE?:
     LDAB    1,x
     BITB    #VOICE_STATUS_ACTIVE
     BNE     _POLY_IS_SUSTAIN_PEDAL_ACTIVE?
 
 ; Increment the loop pointers, and voice number, then loop back.
-
 _ITERATE_LOOP:
     INX
     INX
@@ -6712,8 +6705,6 @@ _ITERATE_LOOP:
 
 ; Increase the voice number in the 'Remove Voice Event' command by one.
 ; This is done by adding 4, since this field uses bytes 7..2.
-
-_SET_REMOVE_VOICE_COMMAND:
     LDAB    <VR_REMOVE_VOICE_CMD
     ADDB    #4
 
@@ -6721,7 +6712,7 @@ _SET_REMOVE_VOICE_COMMAND:
     BITB    #%1000000
     BEQ     _FIND_KEY_EVENT_LOOP
 
-_EXIT_MATCHING_VOICE_NOT_FOUND:
+; If a matching voice event is not found, exit.
     RTS
 
 _POLY_IS_SUSTAIN_PEDAL_ACTIVE?:
@@ -6731,21 +6722,17 @@ _POLY_IS_SUSTAIN_PEDAL_ACTIVE?:
 
 ; Mask the appropriate bit of the 'flag byte' of the Key Event buffer entry
 ; to indicate a 'Key Off' event.
-
-_SET_KEY_OFF_EVENT:
     LDAA    1,x
     ANDA    #~VOICE_STATUS_ACTIVE
     STAA    1,x
 
 ; The following lines set this voice's pitch EG step to 4, to indicate
 ; that it's in the release phase.
-
-_SET_ENV_STEP:
     LDAA    #4
     LDX     <VR_VOICE_PITCH_EG_CURR_STEP_PTR
     STAA    0,x
 
-_SEND_VOICE_OFF_EVENT_TO_EGS:
+; Send the 'Voice Off' event to the EGS.
     LDAB    <VR_REMOVE_VOICE_CMD
     STAB    P_EGS_KEY_EVENT
     RTS
@@ -6779,6 +6766,7 @@ VOICE_ADD_MONO:
     LDAB    <M_MONO_ACTIVE_VOICE_COUNT
     CMPB    #16
     BEQ     _END_VOICE_ADD_MONO
+
     LDAB    #16
 
 ; In MONO mode, the active key event is CLEARED when removed.
@@ -6794,12 +6782,12 @@ _VOICE_ADD_MONO_FIND_CLEAR_VOICE_LOOP:
     INX
     DECB
     BNE     _VOICE_ADD_MONO_FIND_CLEAR_VOICE_LOOP ; If B > 0, loop.
+
     RTS
 
+_VOICE_ADD_MONO_FOUND_CLEAR_VOICE:
 ; Write ((NOTE_KEY << 8) & 2) to the first entry in the 'Voice Event'
 ; buffer to indicate that this voice is actively playing this key.
-
-_VOICE_ADD_MONO_FOUND_CLEAR_VOICE:
     LDAA    <M_NOTE_KEY
     LDAB    #VOICE_STATUS_ACTIVE
     STD     0,x
@@ -6818,23 +6806,23 @@ _VOICE_ADD_MONO_FOUND_CLEAR_VOICE:
 ; If the synth's LFO delay is not set to 0, reset the LFO delay accumulator.
     TST     M_PATCH_BUFFER_EDIT_LFO_DELAY
     BEQ     _VOICE_ADD_MONO_IS_LFO_SYNC_ON?
+
     LDD     #0
     STD     <M_LFO_DELAY_ACCUMULATOR
     CLR     M_LFO_FADE_IN_SCALE_FACTOR
 
+_VOICE_ADD_MONO_IS_LFO_SYNC_ON?:
 ; If 'LFO Key Sync' is enabled, reset the LFO phase accumulator to its
 ; maximum positive value to coincide with the 'Key On' event.
-
-_VOICE_ADD_MONO_IS_LFO_SYNC_ON?:
     TST     M_PATCH_BUFFER_EDIT_LFO_SYNC
     BEQ     _VOICE_ADD_MONO_RESET_EGS_KEY_EVENT
+
     LDD     #$7FFF
     STD     <M_LFO_PHASE_ACCUMULATOR
 
+_VOICE_ADD_MONO_RESET_EGS_KEY_EVENT:
 ; The following section will send a 'Key Off' event to the EGS chip's
 ; 'Key Event' register, prior to sending the new 'Key On' event.
-
-_VOICE_ADD_MONO_RESET_EGS_KEY_EVENT:
     LDAB    #2
     STAB    P_EGS_KEY_EVENT
 
@@ -6859,20 +6847,18 @@ _VOICE_ADD_MONO_RESET_EGS_KEY_EVENT:
     BITA    #PEDAL_STATUS_PORTAMENTO_ACTIVE
     BNE     _VOICE_ADD_MONO_RESET_PITCH_EG_LEVEL
 
+_VOICE_ADD_MONO_NO_PORTAMENTO:
 ; If there's no portamento. The portamento and glissando pitch buffers
 ; will be set to the same value as the current voice's target pitch.
 ; The effect of this will be that there is no voice transition computed by
 ; the 'PORTA_PROCESS' subroutine, which is responsible for updating the
 ; synth's voice pitch periodically.
-
-_VOICE_ADD_MONO_NO_PORTAMENTO:
     BSR     VOICE_ADD_MONO_CLEAR_PORTA_FREQ
 
+_VOICE_ADD_MONO_RESET_PITCH_EG_LEVEL:
 ; Reset the current pitch EG level to its initial value.
 ; In the DX7, the final value, and the initial value are identical.
 ; So when adding a voice, the initial level is set to the final value.
-
-_VOICE_ADD_MONO_RESET_PITCH_EG_LEVEL:
     LDAA    M_PATCH_PITCH_EG_VALUES_FINAL_LEVEL
     CLRB
     LSRD
@@ -6917,6 +6903,7 @@ VOICE_ADD_MONO_MULTIPLE_VOICES:
     LDAA    <M_NOTE_KEY
     SUBA    <M_NOTE_KEY_LAST
     BCC     _VOICE_ADD_MONO_NEW_NOTE_HIGHER
+
     CLR     M_LEGATO_DIRECTION
     BRA     VOICE_ADD_MONO_UPDATE_LAST_NOTE
 
@@ -6924,12 +6911,11 @@ _VOICE_ADD_MONO_NEW_NOTE_HIGHER:
     LDAA    #1
     STAA    <M_LEGATO_DIRECTION
 
+VOICE_ADD_MONO_UPDATE_LAST_NOTE:
 ; The voice's target pitch, and 'Previous Key' data is stored here.
 ; If portamento is not currently active, the target pitch will be set a
 ; second time, together with the voice pitch buffers specific to
 ; portamento, and glissando.
-
-VOICE_ADD_MONO_UPDATE_LAST_NOTE:
     BSR     VOICE_ADD_MONO_STORE_KEY_AND_PITCH
 
 ; Test whether the portamento rate is at its maximum (0xFF).
@@ -6973,12 +6959,10 @@ VOICE_ADD_MONO_CLEAR_PORTA_FREQ:
     STD     M_VOICE_FREQ_GLISSANDO
     RTS
 
-
+VOICE_ADD_MONO_ABOVE_2_VOICES:
 ; If there's more than two active voices, check the legato direction,
 ; and then check whether the new note is further in that direction than the
 ; previous. If so, the legato target note will need to be updated.
-
-VOICE_ADD_MONO_ABOVE_2_VOICES:
     LDAA    <M_LEGATO_DIRECTION
     BEQ     _VOICE_ADD_MONO_IS_NEW_NOTE_LOWER?
 
@@ -6987,6 +6971,7 @@ VOICE_ADD_MONO_ABOVE_2_VOICES:
     LDAA    <M_NOTE_KEY
     SUBA    <M_NOTE_KEY_LAST
     BCS     _VOICE_ADD_MONO_MULTIPLE_VOICES_EXIT
+
     BRA     VOICE_ADD_MONO_UPDATE_LAST_NOTE
 
 ; If the current legato direction is downwards, and the new note is LOWER,
@@ -7013,7 +6998,8 @@ _VOICE_ADD_MONO_IS_NEW_NOTE_LOWER?:
 
 VOICE_ADD_MONO_STORE_KEY_AND_PITCH:
     LDAA    <M_NOTE_KEY
-    STAA    <M_NOTE_KEY_LAST                    ; Falls-through below.
+    STAA    <M_NOTE_KEY_LAST
+; Falls-through below.
 
 
 ; ==============================================================================
@@ -7033,18 +7019,15 @@ VOICE_ADD_MONO_SET_TARGET_PITCH:
     RTS
 
 
+_VOICE_REMOVE_SYNTH_IS_MONO:
 ; Search the voice event buffer for an entry with the same key as the one
 ; being released.
-
-_VOICE_REMOVE_SYNTH_IS_MONO:
     JSR     VOICE_REMOVE_FIND_VOICE_WITH_KEY
     TSTA
     BEQ     _END_VOICE_REMOVE
 
 ; In monophonic mode, the associated entry in the voice event buffer is
 ; completely cleared.
-
-_CLEAR_VOICE_EVENT:
     LDD     #0
     STD     0,x
 
@@ -7052,14 +7035,15 @@ _CLEAR_VOICE_EVENT:
     TST     M_MONO_ACTIVE_VOICE_COUNT
     BEQ     _END_VOICE_REMOVE
 
-_IS_THIS_LAST_ACTIVE_VOICE?:
+; Is this the last active voice?
     DEC     M_MONO_ACTIVE_VOICE_COUNT
     BNE     _LEGATO_ACTIVE
 
-_IS_SUSTAIN_PEDAL_ACTIVE?:
+; Is the sustain pedal active?
     LDAA    <M_PEDAL_INPUT_STATUS
     BITA    #PEDAL_STATUS_SUSTAIN_ACTIVE
     BNE     _SUSTAIN_PEDAL_ACTIVE
+
     LDAA    #4
     STAA    M_VOICE_PITCH_EG_CURR_STEP
 
@@ -7075,6 +7059,7 @@ _SUSTAIN_PEDAL_ACTIVE:
     STAA    <M_MONO_SUSTAIN_PEDAL_ACTIVE
     RTS
 
+_LEGATO_ACTIVE:
 ; Since there's still another voice active after removing this one, the
 ; following section deals with finding the pitch of the 'last' active key,
 ; and depending on the legato direction, finding the lowest, or highest
@@ -7082,12 +7067,10 @@ _SUSTAIN_PEDAL_ACTIVE:
 ; monophonic voice.
 ; This will cause the synth's legato/portamento to transition towards this
 ; pitch in the 'PORTA_PROCESS' subroutine.
-
-_LEGATO_ACTIVE:
     LDAA    <M_LEGATO_DIRECTION
     BNE     _LEGATO_HIGH
 
-_LEGATO_LOW:
+; Legato is downwards.
     JSR     VOICE_REMOVE_FIND_ACTIVE_KEY_EVENT
     JSR     VOICE_REMOVE_MONO_FIND_LOWEST_KEY
     BRA     _STORE_LEGATO_TARGET_PITCH
@@ -7109,21 +7092,21 @@ _STORE_LEGATO_TARGET_PITCH:
     JSR     VOICE_CONVERT_NOTE_TO_LOG_FREQ
     BSR     VOICE_ADD_MONO_SET_TARGET_PITCH
 
-_VOICE_REMOVE_IS_PORTA_RATE_MAX?:
+; Is the portamento rate instantaneous?
     LDAA    <M_PORTA_RATE_INCREMENT
     CMPA    #$FF
     BEQ     _MONO_END_PORTA_PEDAL_INACTIVE
 
-_VOICE_REMOVE_IS_PORTA_MODE_FINGERED?:
+; Is the portamento mode 'Fingered'?
     TST     M_PORTA_MODE
-    BEQ     _MONO_END_PORTA_PEDAL_ACTIVE
+    BEQ     _VOICE_ADD_MONO_END_PORTA_FINGERED
 
-_IS_PORTA_SWITCH_ACTIVE?:
+; Is the portamento pedal active?
     LDAA    <M_PEDAL_INPUT_STATUS
     BITA    #PEDAL_STATUS_PORTAMENTO_ACTIVE
     BEQ     _MONO_END_PORTA_PEDAL_INACTIVE
 
-_MONO_END_PORTA_PEDAL_ACTIVE:
+_VOICE_ADD_MONO_END_PORTA_FINGERED:
     RTS
 
 _MONO_END_PORTA_PEDAL_INACTIVE:
@@ -7152,17 +7135,18 @@ VOICE_REMOVE_FIND_VOICE_WITH_KEY:
 _VOICE_REMOVE_KEY_LOOP:
     LDAA    <M_NOTE_KEY
     CMPA    0,x
-    BEQ     _IF_FOUND
+    BEQ     _VOICE_REMOVE_KEY_FOUND
+
     INX
     INX
     DECB
     BNE     _VOICE_REMOVE_KEY_LOOP              ; If ACCB > 0, loop.
 
-_VOICE_WITH_KEY_NOT_FOUND:
+; If a voice with the specified key is not found, exit.
     CLRA
     RTS
 
-_IF_FOUND:
+_VOICE_REMOVE_KEY_FOUND:
     LDAA    0,x
     RTS
 
@@ -7191,16 +7175,17 @@ VOICE_REMOVE_FIND_ACTIVE_KEY_EVENT:
 
 _FIND_LAST_KEY_LOOP:
     LDAA    0,x
-    BNE     _ENTRY_NON_ZERO
+    BNE     _VOICE_REMOVE_ACTIVE_EVENT_FOUND
+
     INX
     INX
     DECB
     BNE     _FIND_LAST_KEY_LOOP                 ; If B > 0, loop.
 
-_ACTIVE_KEY_EVENT_NOT_FOUND:
+; If an active key event is not found, exit.
     RTS
 
-_ENTRY_NON_ZERO:
+_VOICE_REMOVE_ACTIVE_EVENT_FOUND:
     BSR     VOICE_REMOVE_MONO_STORE_LEGATO_NOTE
     INX
     INX
@@ -7230,8 +7215,6 @@ _FIND_HIGHEST_IS_VOICE_EVENT_CLEAR?:
 
 ; If the current entry's key number is higher than the presently stored
 ; entry, store this key number instead.
-
-_IS_NOTE_HIGHER?:
     SUBA    <M_NOTE_KEY_LAST
     BMI     _FIND_HIGHEST_KEY_LOOP_INCREMENT
     BSR     VOICE_REMOVE_MONO_SET_LEGATO_NOTE
@@ -7258,7 +7241,6 @@ VOICE_REMOVE_MONO_FIND_LOWEST_KEY:
     DECB
     BNE     _FIND_LOWEST_IS_VOICE_EVENT_CLEAR?
 
-_END_VOICE_REMOVE_MONO_FIND_LOWEST_KEY:
     RTS
 
 _FIND_LOWEST_IS_VOICE_EVENT_CLEAR?:
@@ -7267,10 +7249,9 @@ _FIND_LOWEST_IS_VOICE_EVENT_CLEAR?:
 
 ; If the current entry's key number is lower than the presently stored
 ; entry, store this key number instead.
-
-_IS_NOTE_LOWER?:
     SUBA    <M_NOTE_KEY_LAST
     BPL     _FIND_LOWEST_KEY_INCREMENT_INDEX
+
     BSR     VOICE_REMOVE_MONO_SET_LEGATO_NOTE
 
 _FIND_LOWEST_KEY_INCREMENT_INDEX:
@@ -7340,10 +7321,12 @@ _INACTIVE_VOICE_SEARCH_LOOP:
     ABX
     TIM     #KEY_EVENT_ACTIVE, 0,x
     BEQ     _SETUP_LOOP_2
+
     INCB
     ANDB    #%1111                              ; B = B % 16.
     DECA
     BNE     _INACTIVE_VOICE_SEARCH_LOOP         ; If A > 0, loop.
+
     RTS
 
 _SETUP_LOOP_2:
@@ -7362,8 +7345,10 @@ _INACTIVE_VOICE_SEARCH_LOOP_2:
     ABX
     TIM     #KEY_EVENT_ACTIVE, 0,x
     BEQ     _ADD_KEY_EVENT
+
     DECA
     BNE     _INACTIVE_VOICE_SEARCH_LOOP_2       ; If A > 0, loop.
+
     BRA     *+2
 
 _ADD_KEY_EVENT:
@@ -7380,6 +7365,7 @@ _INCREMENT_CURR_VOICE:
     ANDB    #%1111                              ; Voice_Current % 16.
     STAB    <M_KEY_EVENT_CURRENT
     JSR     VOICE_ADD
+
     RTS
 
 
@@ -7409,14 +7395,15 @@ VOICE_REMOVE_KEY:
 _ACTIVE_VOICE_SEARCH_LOOP:
     CMPA    0,x
     BEQ     _ACTIVE_VOICE_FOUND
+
     INX
     DECB
     BNE     _ACTIVE_VOICE_SEARCH_LOOP           ; If ACCB > 0, loop.
+
     RTS
 
-; Mask the active voice flag bit.
-
 _ACTIVE_VOICE_FOUND:
+; Mask the active voice flag bit.
     AIM     #~KEY_EVENT_ACTIVE, 0,x
     JSR     VOICE_REMOVE
     RTS
@@ -7445,6 +7432,7 @@ _DEACTIVATE_VOICE_LOOP:
 ; associated with that key number.
     TIM     #KEY_EVENT_ACTIVE, 0,x
     BEQ     _DEACTIVATE_VOICE_LOOP_INCREMENT
+
     LDAB    0,x
 
 ; Load the note from the 'Key Event' buffer, and mask the 'active' bit in
@@ -7458,6 +7446,7 @@ _DEACTIVATE_VOICE_LOOP_INCREMENT:               ; Restore iterator.
     INCB
     CMPB    #16
     BNE     _DEACTIVATE_VOICE_LOOP              ; If B < 16, loop.
+
     CLR     M_KEY_EVENT_CURRENT
     RTS
 
@@ -7484,12 +7473,12 @@ _DEACTIVATE_VOICE_LOOP_INCREMENT:               ; Restore iterator.
 ; ==============================================================================
 
 JUMP_TO_RELATIVE_OFFSET:
-    PULX                                        ; Restore return addr into IX.
-
-; If the current jump table entry number is '0', the end of the jump table has
-; been reached, so exit.
+; Pull the return address from the stack into IX.
+    PULX
 
 _IS_END_OF_JUMP_TABLE?:
+; If the current jump table entry number is '0', the end of the jump table has
+; been reached, so exit.
     TST     1,x
     BEQ     _END_JUMP_TO_RELATIVE_OFFSET
 
@@ -7497,18 +7486,21 @@ _IS_END_OF_JUMP_TABLE?:
 ; tested, jump to the relative offset.
     CMPB    1,x
     BCS     _END_JUMP_TO_RELATIVE_OFFSET
+
     INX
     INX
     BRA     _IS_END_OF_JUMP_TABLE?
 
-; Load the relative offset, add it to the pointer in IX, and then jump.
-
 _END_JUMP_TO_RELATIVE_OFFSET:
+; Load the relative offset in the current entry, add this to the return
+; address popped from the stack, and jump to it.
     PSHB
     LDAB    0,x
     ABX
     PULB
     JMP     0,x
+
+; This code appears to be unreachable.
     ASLA
     LDAB    #165
     MUL
@@ -7569,39 +7561,64 @@ PATCH_ACTIVATE_SCALE_VALUE:
 ; ==============================================================================
 
 CONVERT_INT_TO_STR:
+; ==============================================================================
+; LOCAL TEMPORARY VARIABLES
+; ==============================================================================
+_ORIGINAL_NUMBER:                         equ  $B4
+_POWERS_OF_TEN_PTR:                       equ  $B6
+_ITERATOR                                 equ  $217B
+_REMAINDER                                equ  $2181
+_COUNTER                                  equ  $2180
+
+; ==============================================================================
     PSHX
-    STD     <$B4
+    STD     _ORIGINAL_NUMBER
     LDX     #TABLE_POWERS_OF_TEN
-    STX     <$B6
+    STX     _POWERS_OF_TEN_PTR
+
     LDAB    #4
-    STAB    $217B                               ; Iterator = 4.
-    LDD     <$B4
+    STAB    _ITERATOR
+    LDD     _ORIGINAL_NUMBER
 
-_LOOP_RESET:
-    CLR     $2180
+_CONVERT_DIGIT_LOOP:
+; This is the outer-loop responsible for each digit.
+    CLR     _COUNTER
 
-_CONVERT_INT_TO_STR_LOOP:
-    LDX     <$B6
+_TEST_POWER_OF_TEN_LOOP:
+; Load the current power-of-ten, and subtract it from the value in ACCD.
+    LDX     _POWERS_OF_TEN_PTR
     SUBD    0,x
-    BCS     _ITERATE
-    INC     $2180
-    BRA     _CONVERT_INT_TO_STR_LOOP
+; If this subtraction sets the carry bit, advance the loop to the next lowest
+; power of ten.
+    BCS     _NEXT_POWER_OF_TEN
 
-_ITERATE:
-    LDX     <$B6
+; If the number is still more than this power-of-ten, increment the counter,
+; and perform the subtraction again.
+    INC     _COUNTER
+    BRA     _TEST_POWER_OF_TEN_LOOP
+
+_NEXT_POWER_OF_TEN:
+; Add the previously subtracted power-of-ten back to the number, since it's
+; now negative.
+    LDX     _POWERS_OF_TEN_PTR
     ADDD    0,x
+
+; Increment the power-of-ten pointer.
     INX
     INX
-    STX     <$B6
-    STD     $2181
-    LDAA    $2180
-    LDAB    $217B
-    LDX     #$217B
+    STX     _POWERS_OF_TEN_PTR
+
+    STD     _REMAINDER
+    LDAA    _COUNTER
+    LDAB    _ITERATOR
+
+; Store the result digit.
+    LDX     #_ITERATOR
     ABX
     STAA    0,x
-    LDD     $2181
-    DEC     $217B
-    BNE     _LOOP_RESET                         ; If *(0x217B) > 0, loop.
+    LDD     _REMAINDER
+    DEC     _ITERATOR
+    BNE     _CONVERT_DIGIT_LOOP
 
 _END_CONVERT_INT_TO_STR:
     PULX
@@ -7620,18 +7637,19 @@ TABLE_POWERS_OF_TEN:
 ; LOCATION: 0xD7D1
 ;
 ; DESCRIPTION:
-; Checks battery voltage against a constant. Prints an error
-; message if too low.
+; Tests the battery against a low voltage threshold. If the voltage is too low
+; an error message is printed to the LCD.
 ;
 ; ==============================================================================
 
 BATTERY_CHECK:
     LDAA    #110
     SUBA    M_BATTERY_VOLTAGE
-    BPL     _PRINT_LOW_BTTRY_MSG
+    BPL     _BATTERY_CHECK_VOLTAGE_LOW
+
     RTS
 
-_PRINT_LOW_BTTRY_MSG:
+_BATTERY_CHECK_VOLTAGE_LOW:
     LDX     #str_change_battery
     JMP     LCD_CLEAR_LINE_2_PRINT_AND_UPDATE
 
