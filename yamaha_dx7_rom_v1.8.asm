@@ -2938,7 +2938,7 @@ MAIN_PORTA_SUS_PDL_STATE_UPDATE:
 ; to the MIDI TX buffer.
     BEQ     _SUSTAIN_STATE_CHANGED_OFF
 
-_SUSTAIN_STATE_CHANGED_ON:
+; The sustain state has changed to on.
     OIM     #1, M_PEDAL_INPUT_STATUS
     LDAB    #127
     BRA     _SEND_SUSTAIN_MIDI_MSG
@@ -2968,7 +2968,7 @@ _CHECK_PORTA_PEDAL_STATUS:
     BITA    #%10
     BEQ     _PORTA_STATE_CHANGED_OFF
 
-_PORTA_STATE_CHANGED_ON:
+; The portamento state has changed to on.
     OIM     #%10, M_PEDAL_INPUT_STATUS
     LDAB    #127
     BRA     _SEND_PORTA_MIDI_MSG
@@ -3095,8 +3095,6 @@ HANDLER_IRQ:
 ; keyboard event. The first data byte is the source, indicating which key
 ; was pressed, the second data byte indicates the velocity.
 ; The DX7 considers a key event with zero velocity to be a 'Key Up' event.
-
-_KEYBOARD_INPUT:
     STAA    <M_SUB_CPU_READ_KEY
 
 ; Subtract 123, since the keyboard starts at C2 (MIDI 36).
@@ -3107,7 +3105,7 @@ _KEYBOARD_INPUT:
     STAA    <M_NOTE_VEL
     BEQ     _HANDLE_KEY_UP_EVENT
 
-_HANDLE_KEY_DOWN_EVENT:
+; Handle a 'Key Down' event.
     CLI
     LDAA    #44
     STAA    <M_LAST_ANALOG_INPUT_EVENT
@@ -3126,7 +3124,7 @@ _IS_BTN_DOWN_EVENT?:
     CMPA    #152
     BNE     _IS_BTN_UP_EVENT?
 
-_HANDLE_BTN_DOWN:
+; Handle a 'Button Down' event.
     JSR     READ_BYTE_FROM_SUB_CPU
     CLI
     SUBA    #80
@@ -3166,6 +3164,8 @@ INPUT_BTN_PRESSED:
 
     CLR     M_LAST_ANALOG_INPUT_EVENT
 
+; Set IO Port 2 to indicate that the CPU is not ready to read from the
+; sub-CPU, and jump to the diagnostic tests.
     LDAB    #1
     STAB    <IO_PORT_2_DATA
     JMP     TEST_ENTRY
@@ -3217,28 +3217,26 @@ INPUT_BTN_RELEASED:
     CMPA    #BUTTON_STORE
     BEQ     _UI_FN_STORE
 
-_IS_BTN_EDIT?:
+; Was the button 'Edit'?
     CMPA    #BUTTON_EDIT_CHAR
     BEQ     _BTN_EDIT
 
-_IS_BTN_FUNC?:
+; Was the button 'Function'?
     CMPA    #BUTTON_FUNCTION
     BEQ     _CLEAR_FUNC_BUTTON_STATE
 
 ; Check if the released button is button 16. If so, check if the test mode
 ; button check counter is 1. If it is, reset it to 0. Refer to the input
 ; 'Test button combo' check function for more information.
-
-_IS_BTN_16?:
     CMPA    #BUTTON_16
     BEQ     _BTN_IS_16
+
     RTS
 
+_UI_FN_STORE:
 ; Test if the synth is currently in the process of using the
 ; 'Edit/Char' key to input characters. If so, exit here. Since in this
 ; mode this button is used to enter a character.
-
-_UI_FN_STORE:
     TST     M_EDIT_ASCII_MODE
     BNE     _UI_FN_STORE_ABORT
 
@@ -3250,10 +3248,9 @@ _UI_FN_STORE:
 _UI_FN_STORE_ABORT:
     RTS
 
+_BTN_EDIT:
 ; If the 'Edit' button is being released, then clear the 'ASCII Edit Mode'
 ; flag used for inputting chars from the front-panel buttons.
-
-_BTN_EDIT:
     CLR     M_EDIT_ASCII_MODE
     RTS
 
@@ -3272,14 +3269,12 @@ _RESET_TEST_MODE_BTN_CHECK:
     CLR     M_TEST_MODE_BUTTON_CHECK
     RTS
 
-
-; Handle any other non-button, non-keyboard analog input event.
-
 _IS_ANALOG_INPUT_EVENT?:
+; Handle any other non-button, non-keyboard analog input event.
     CMPA    #143
     BLS     INPUT_ANALOG_STORE_EVENT
 
-_HANDLE_ANALOG_INPUT_EVENT:
+; Handle an analog input event.
     ANDA    #%111
     STAA    <M_ANALOG_DATA_SRC
     JSR     READ_BYTE_FROM_SUB_CPU
@@ -3298,7 +3293,6 @@ _HANDLE_ANALOG_INPUT_EVENT:
 ; e.g. If the event number was 3, the offet from 0xC9BE to the handler
 ; function is 0x1E.
 ; ==============================================================================
-TABLE_ANALOG_EVENT_HANDLER_OFFSETS:
     FCB INPUT_ANALOG_SRC_1_SLIDER - *
     FCB 1
     FCB INPUT_ANALOG_SRC_2_PITCH_BEND - *
@@ -3502,11 +3496,10 @@ INPUT_SLIDER:
 
     LDAB    #INPUT_MODE_FN
 
+_LOAD_EDIT_PARAM:
 ; Load a pointer to the 'Slider Edit Parameters' table.
 ; This table contains pointers to a pointer to the current parameter in
 ; memory that's being edited, depending on what input mode the synth is in.
-
-_LOAD_EDIT_PARAM:
     ASLB
     LDX     #TABLE_SLIDER_EDIT_PARAMS
     ABX
@@ -3517,41 +3510,37 @@ _LOAD_EDIT_PARAM:
     LDAB    0,x
     PSHB
 
+; Check the synth's input mode.
 ; If the synth's input mode is 0 ('Play' Mode), set to
 ; mode 2 ('Function' Mode) as a default.
-
-_CHECK_INPUT_MODE:
     LDAB    M_INPUT_MODE
     BNE     _LOAD_MAX_VALUE_TABLE
 
     LDAB    #INPUT_MODE_FN
 
+_LOAD_MAX_VALUE_TABLE:
 ; Load the pointer to the correct maximum value table, depending on what
 ; 'Input Mode' the synth is currently in.
-
-_LOAD_MAX_VALUE_TABLE:
     ASLB
     LDX     #TABLE_SLIDER_MAX_VALUES
     ABX
     LDX     0,x
 
 ; Load the currently edited parameter's maximum value into ACCA.
-
-_LOAD_MAX_VALUE:
     PULB
     ABX
     LDAA    0,x
     INCA
 
-_CALCULATE_INCREMENT:
+; Calculate the increment.
     LDAB    <M_ANALOG_DATA
     MUL
     STAA    <M_UP_DOWN_INCREMENT
 
-_END_INPUT_SLIDER:
     LDAA    #43
     STAA    <M_LAST_ANALOG_INPUT_EVENT
     STAA    M_LAST_INPUT_EVENT
+
     RTS
 
 
@@ -3705,8 +3694,6 @@ PATCH_COMPARE:
 
 ; The following subroutine copies the edit buffer to the compare
 ; buffer, and then reloads the current patch from its original source.
-
-_COPY_PATCH_TO_COMPARE:
     JSR     PATCH_COPY_TO_COMPARE
     LDAA    #EDITED_PATCH_IN_COMPARE
     STAA    M_PATCH_CURRENT_MODIFIED_FLAG
@@ -3714,10 +3701,9 @@ _COPY_PATCH_TO_COMPARE:
     TST     M_PATCH_CURRENT_CRT_OR_INT
     BEQ     _PATCH_IN_INT_MEMORY
 
+; Patch is in cartridge memory.
 ; If the patch is loaded from the CRT, check the port input to determine
 ; if the cartridge is present. If not, print an error message.
-
-_PATCH_IN_CRT_MEMORY:
     LDAB    P_CRT_PEDALS_LCD
     ANDB    #CRT_FLAG_INSERTED
     BNE     _PRINT_NOT_READY_MSG
@@ -3994,15 +3980,14 @@ BTN_STORE:
 ; If we're in 'Play' mode, then this button handler will initiate storing the
 ; working patch. If we're in any other mode, it will initiate operator EG copy.
     TST     M_INPUT_MODE
-    BEQ     _BTN_MODE_0
+    BEQ     BTN_STORE_PLAY_MODE
 
 ; Check if we're currently in 'compare' mode.
 ; If there's an edited patch in the compare buffer, exit.
-
-_BTN_STORE_IS_IN_COMPARE_MODE?:
     LDAA    M_PATCH_CURRENT_MODIFIED_FLAG
     CMPA    #EDITED_PATCH_IN_COMPARE
     BNE     _PRINT_EG_COPY
+
     RTS
 
 _PRINT_EG_COPY:
@@ -4059,7 +4044,16 @@ BTN_CLEAR_RW_FLAG_AND_EXIT:
     CLR     M_PATCH_READ_OR_WRITE
     RTS
 
-_BTN_MODE_0:
+
+; ==============================================================================
+; BTN_STORE_PLAY_MODE
+; ==============================================================================
+; DESCRIPTION:
+; Handles a 'Store' button-press while the synth is in 'Play Mode'.
+;
+; ==============================================================================
+
+BTN_STORE_PLAY_MODE:
     TST     M_MEM_SELECT_UI_MODE
     BEQ     _CHECK_INT_MEM_PROTECT_STATE
 
@@ -4108,7 +4102,7 @@ BTN_FN_MIDI:
     TST     M_MIDI_SYS_INFO_AVAIL
     BEQ     _IS_SUB_FN_2?
 
-_IS_SUB_FN_AT_MAX?:
+; Is the sub-function at its maximum?
     CMPA    #3
     BNE     SET_UI_TO_FN_MODE
 
@@ -4130,6 +4124,7 @@ SET_UI_TO_FN_MODE:
     LDAA    M_LAST_PRESSED_BTN
     STAA    M_FN_PARAM_CURRENT
     JSR     UI_PRINT_MAIN
+
     RTS
 
 
@@ -4435,7 +4430,7 @@ _PATCH_WRITE_TO_CRT:
     JSR     LCD_STRCPY
     JSR     PRINT_MSG_UNDER_WRITING
 
-_SERIALISE_PATCH_DATA:
+; Serialise the patch data to the temp buffer.
     LDD     #M_PATCH_SERIALISED_TEMP
     JSR     PATCH_SERIALISE
 
@@ -4947,8 +4942,6 @@ _GET_PARAM_SRC:
 ; table containing the maximum values by using the current input mode as an
 ; index into this lookup table containing pointers to the different maximum
 ; value tables.
-
-_GET_PARAM_TABLE:
     LDX     #TABLE_MAX_VALUE_TBL_PTRS
     LDAB    M_INPUT_MODE
     BNE     _LOAD_TABLE
@@ -4995,7 +4988,7 @@ _BTN_NO:
     LDAA    0,x
     BEQ     _RESTORE_IX_AND_EXIT
 
-_HANDLE_DECREMENT:
+; Handle decrementing the value.
 ; Since a value indicating a decrement will have its MSB set, adding this
 ; value to a numeric value will constitute a subtraction operation.
 ; If the resulting decrement underflows, set the result to 0.
@@ -5336,11 +5329,11 @@ _RANGE_VALUE:
     TST     M_SLIDER_INPUT_EVENT
     BNE     _STORE_AND_UPDATE_PITCH_MOD?
 
-_IS_INCREMENT_POSITIVE?:
+; Is the increment positive?
     TSTA
     BMI     _INCREMENT_NEGATIVE
 
-_IS_VALUE_AT_MAX?:
+; Is the value at its maximum?
     LDAA    0,x
     CMPA    #99
     BEQ     _END_BTN_YES_NO_FN_16_TO_32
@@ -5400,17 +5393,14 @@ _STORE_VALUE:
 
 ; Set the corresponding flag with a logical OR using the modulo'd
 ; button input as a bitmask.
-
-_SET_PARAM_FLAG:
     ORAB    0,x
     TBA
     BRA     _STORE_AND_UPDATE_PITCH_MOD?
 
+_CLEAR_PARAM_FLAG:
 ; The following section creates a negative bitmask from the
 ; modulo'd button input number, and then uses a logical AND to clear
 ; the corresponding bit in the flag variable.
-
-_CLEAR_PARAM_FLAG:
     COMB
     ANDB    0,x
     TBA
@@ -5442,8 +5432,8 @@ _NON_RANGE_BTN_YES:
 ; ==============================================================================
 
 VOICE_RESET:
-    JSR     VOICE_RESET_EGS                     ; Falls-through below.
-
+    JSR     VOICE_RESET_EGS
+; Falls-through below.
 
 ; ==============================================================================
 ; VOICE_RESET_EVENT_AND_PITCH_BUFFERS
@@ -5476,8 +5466,6 @@ _CLEAR_VOICE_EVENTS_LOOP:
 
 ; The following code clears the three sequential 'Voice Pitch Buffers'
 ; by setting the entry for each voice pitch to 0x2EA8.
-
-_CLEAR_PITCH_BUFFERS:
     LDAA    #48
     STAA    <$86                                ; Loop index.
     LDD     #$2EA8
@@ -5512,7 +5500,7 @@ BTN_YES_NO_FN_8:
     LDAA    M_EDIT_BTN_8_SUB_FN
     BNE     _IS_SUB_FN_1?
 
-_SUB_FN_0:
+; Sub-function 0: MIDI Receive channel.
     JSR     VOICE_RESET
     LDX     #M_MIDI_RX_CH
     JMP     BTN_YES_NO_INC_DEC
@@ -5657,7 +5645,6 @@ _IS_BTN_10?:
     CLR     IO_PORT_2_DATA
     CLR     TIMER_CTRL_STATUS
 
-_DESERIALISE_INIT_BUFFER:
 ; Load, and deserialise the initialise voice buffer into the
 ; 'Edit Buffer', then reset the status of the individual operators.
     LDD     #PATCH_INIT_VOICE_BUFFER
@@ -7389,7 +7376,7 @@ _ADD_KEY_EVENT:
     ORAA    #KEY_EVENT_ACTIVE
     STAA    0,x
 
-_INCREMENT_CURR_VOICE:
+; Increment the current voice.
     LDAB    <M_KEY_EVENT_CURRENT
     INCB
     ANDB    #%1111                              ; Voice_Current % 16.
@@ -7650,7 +7637,6 @@ _NEXT_POWER_OF_TEN:
     DEC     _ITERATOR
     BNE     _CONVERT_DIGIT_LOOP
 
-_END_CONVERT_INT_TO_STR:
     PULX
     RTS
 
@@ -11167,8 +11153,6 @@ _PORTA_PROCESS_VOICE_LOOP:
 ; If the current glissando frequency is above the target frequency,
 ; calculate the portamento frequency decrement, and subtract it from the
 ; current frequency.
-
-_PORTA_PROCESS_FREQ_ABOVE_TARGET:
     LDAB    <M_PORTA_RATE_INCREMENT
 
 ; Calculate the frequency decrement.
@@ -13056,8 +13040,6 @@ _IS_DATA_CORRECT_RX_CH?:
 ; Is this data part of a 'Note Off' MIDI message?
 ; Remove the bytes signifying the MIDI channel, and compare only
 ; the status type.
-
-_IS_NOTE_OFF?:
     LDAB    <M_MIDI_STATUS_BYTE
     ANDB    #%11110000
     CMPB    #MIDI_STATUS_NOTE_OFF
@@ -13205,8 +13187,6 @@ _MODE_CHG_2:
 ; e.g. If the event number was 3, the offet from 0xEC70 to the handler
 ; function is 0x20.
 ; ==============================================================================
-
-TABLE_MIDI_CC_HANDLER_OFFSETS:
     FCB MIDI_RX_CC_1_MOD_WHEEL - *
     FCB 1
     FCB MIDI_RX_CC_2_BREATH_CONTROLLER - *
@@ -13406,7 +13386,7 @@ MIDI_RX_CC_127_MODE_POLY:
 
 
 ; ==============================================================================
-; MIDI_RX_CC_5
+; MIDI_RX_CC_5_PORTAMENTO_TIME
 ; ==============================================================================
 ; LOCATION: 0xECE6
 ;
@@ -14559,7 +14539,7 @@ _IS_BUTTON_7?:
     CMPA    #BUTTON_7
     BNE     _IS_BUTTON_18?
 
-_PRINT_ALG_SELECT:
+; Print the algorithm select UI.
     JSR     UI_PRINT_ALG_INFO
     LDX     #str_alg_select
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
@@ -14939,7 +14919,7 @@ _PRINT_OSC_DETUNE:
     LDX     #str_osc_detune
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
 
-_SEND_PARAM_OVER_MIDI:
+; Send the parameter value over MIDI.
     JSR     PATCH_GET_PTR_TO_SELECTED_OP
     LDAB    #20
     JSR     MIDI_TX_SYSEX_OPERATOR_PARAM_RELATIVE
@@ -14952,10 +14932,9 @@ _SEND_PARAM_OVER_MIDI:
     LDAB    #7
     STAB    $14,x
 
+_PRINT_OSC_DETUNE_VALUE:
 ; Use the operator detune value as an index into this string.
 ; Copy it to the LCD buffer, then print.
-
-_PRINT_OSC_DETUNE_VALUE:
     ASLB
     LDX     #str_detune_digits
     ABX
@@ -15099,7 +15078,7 @@ _IS_BUTTON_31?:
     CMPA    #BUTTON_31
     BNE     _PRINT_EDIT_INFO?
 
-_PRINT_KEY_TRANSPOSE:
+; Print the key transpose UI.
     JSR     UI_PRINT_ALG_INFO
     LDX     #str_middle_c
     JSR     LCD_WRITE_STR_TO_BUFFER_LINE_2
@@ -15127,20 +15106,18 @@ _PRINT_EDIT_INFO?:
     JSR     UI_PRINT_ALG_INFO
     LDAB    M_EDIT_PARAM_STR_INDEX
 
-; Check that this variable is less-than, or equal to 49.
-
-_IS_VALID_ENTRY?:
+; Is the value valid?
+; Check that this variable is less-than 49.
     CMPB    #49
     BLS     _PRINT_EDIT_PARAM_INFO
 
     RTS
 
+_PRINT_EDIT_PARAM_INFO:
 ; Subtract 6 from the 'Edit Parameter String Index', and use this variable
 ; as an index into the 'Edit String Pointers Table.
 ; We subtract 6, on account of buttons 1-7 being handled elsewhere in this
 ; function.
-
-_PRINT_EDIT_PARAM_INFO:
     SUBB    #6
     ASLB
     CMPB    #44
@@ -15704,11 +15681,9 @@ UI_PRINT_SAVE_LOAD_MEM_MSG:
 
 ; Check whether the last button was 15 (Load), or button 16 (Save), then
 ; print the appropriate message to the LCD buffer, and return.
-
-_IS_LOAD_OR_SAVE?:
     BEQ     _PRINT_SAVE_MEM_MSG
 
-_PRINT_LOAD_MEM_MSG:
+; Print the load memory message.
     LDAB    #1
     LDX     #str_load_memory_all
     BRA     _END_UI_PRINT_SAVE_LOAD_MEM_MSG
@@ -15793,7 +15768,7 @@ _FN_OTHERS:
     CMPB    #10
     BEQ     _END_2
 
-_PRINT_FN_PARAM:
+; Print the function parameter.
 ; Print ASCII '=' to LCD buffer, and increment buffer pointer.
     LDX     <M_COPY_DEST_PTR
     LDAA    #'='
@@ -16090,7 +16065,6 @@ TABLE_STR_PTRS_FN_PARAM_NAMES:
 ; ==============================================================================
 ; MIDI Parameter Names Table.
 ; ==============================================================================
-TABLE_STR_PTRS_MIDI_CH:
     FDB str_midi_recv_ch
     FDB str_midi_trans_ch
     FDB str_battery_volt
@@ -16304,7 +16278,7 @@ _TEST_OPERATOR_ENABLED_LOOP:
     ASL     M_OP_CURRENT
     BCS     _OPERATOR_ENABLED
 
-_OPERATOR_DISABLED:
+; Operator is disabled.
     LDAA    #'0'
 
 _WRITE_OPERATOR_STATUS:
