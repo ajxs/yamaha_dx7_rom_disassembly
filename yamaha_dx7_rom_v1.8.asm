@@ -28,6 +28,13 @@ TIMER_CTRL_EOCI                           equ  1 << 3
 
 SYSTEM_TICK_PERIOD:                       equ  3140
 
+SCI_CTRL_TE                               equ  1 << 1
+SCI_CTRL_TIE                              equ  1 << 2
+SCI_CTRL_RE                               equ  1 << 3
+SCI_CTRL_RIE                              equ  1 << 4
+SCI_CTRL_TDRE                             equ  1 << 5
+SCI_CTRL_ORFE                             equ  1 << 6
+
 ; ==============================================================================
 ; Peripheral Addresses.
 ; These constants are the addresses of the synth's various peripherals.
@@ -153,10 +160,7 @@ LCD_FUNCTION_LINES:                       equ  1 << 3
 VOICE_STATUS_SUSTAIN:                     equ  1
 VOICE_STATUS_ACTIVE:                      equ  %10
 
-SCI_RIE_RE_TE:                            equ  %111010
-SCI_RIE_RE_TIE_TE:                        equ  %111110
-
-KEY_EVENT_ACTIVE:                         equ  %10000000
+KEY_EVENT_ACTIVE:                         equ  1 << 7
 
 
 ; ==============================================================================
@@ -258,6 +262,7 @@ PATCH_LFO_PITCH_MOD_SENS:                 equ  143
 PATCH_KEY_TRANSPOSE:                      equ  144
 PATCH_NAME:                               equ  145
 
+MIDI_BUFFER_TX_SIZE                       equ  180
 
 ; ==============================================================================
 ; Firmware Variables.
@@ -1978,10 +1983,13 @@ _INCREMENT_POINTER:
 TEST_STAGE_7_CRT_WRITE:
     BSR     TEST_CRT_CHECK_INSERTED
     BSR     TEST_CRT_CHECK_MEM_PROTECTION
+
     LDX     #P_CRT_START
     BSR     TEST_CRT_WRITE_BYTE
+
     LDX     #P_CRT_START_IC2
     BSR     TEST_CRT_WRITE_BYTE
+
     LDX     #str_write_ok
     JMP     LCD_CLEAR_LINE_2_PRINT_AND_UPDATE
 
@@ -2661,11 +2669,14 @@ _IS_EDITING_PATCH_NAME?:
 ; If so, test whether the diagnostic mode button combination is active.
     TST     M_BTN_FUNC_STATE
     BNE     _FN_IS_DOWN
+
     LDAB    M_INPUT_MODE
     TST     M_PATCH_READ_OR_WRITE
     BEQ     _LOOKUP_BTN_FN_TABLE
+
     CMPB    #INPUT_MODE_EDIT
     BNE     _LOOKUP_BTN_FN_TABLE
+
     CMPA    #6
     BHI     MAIN_PROCESS_INPUT_END
 
@@ -2687,6 +2698,7 @@ _LOOKUP_BTN_FN_TABLE:
 ; triggering button is below, or equal to 31, set to 0.
     SUBB    #31
     BPL     _LOAD_BTN_FUNCTION_PTR
+
     CLRB
 
 ; Use the current button as an index into this mode's table of function
@@ -4688,11 +4700,13 @@ BTN_SLIDER:
     LDAA    M_MEM_SELECT_UI_MODE
     CMPA    #UI_MODE_CRT_LOAD_SAVE
     BNE     _IS_MODE_MEM_PROTECT?
+
     JMP     BTN_YES_NO_CRT_READ_WRITE
 
 _IS_MODE_MEM_PROTECT?:
     CMPA    #UI_MODE_SET_MEM_PROTECT
     BNE     _IS_SYNTH_IN_PLAY_MODE?
+
     JMP     BTN_YES_NO_SET_MEM_PROTECT_STATUS
 
 _IS_SYNTH_IN_PLAY_MODE?:
@@ -5270,6 +5284,7 @@ BTN_YES_NO_INC_DEC:
     LDAB    M_FN_PARAM_CURRENT
     CMPB    #1
     BNE     BTN_YES_NO_END
+
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
@@ -5367,6 +5382,7 @@ _INCREMENT_NEGATIVE:
 ; If the parameter value underflows the minimum value of 0, clamp it at 0.
     ADDA    <M_UP_DOWN_INCREMENT
     BMI     _CLAMP_VALUE_AT_MIN
+
     BRA     _STORE_AND_UPDATE_PITCH_MOD?
 
 _CLAMP_VALUE_AT_MIN:
@@ -5826,9 +5842,8 @@ _END_MEMORY_CHECK_INT_PROTECT:
 ; ==============================================================================
 
 BTN_YES_NO_CRT_READ_WRITE:
-    TST     M_SLIDER_INPUT_EVENT
-
 ; If this input originated from the slider, exit.
+    TST     M_SLIDER_INPUT_EVENT
     BNE     _CRT_RW_SLIDER_EVENT
 
 ; Was the button press 'Yes', or 'No'?
@@ -5839,6 +5854,7 @@ BTN_YES_NO_CRT_READ_WRITE:
     LDAA    <M_CRT_SAVE_LOAD_FLAGS
     BITA    #1
     BNE     _CONFIRMED
+
     INC     M_CRT_SAVE_LOAD_FLAGS
     JMP     MENU_PRINT_MSG_CONFIRMATION
 
@@ -6610,6 +6626,7 @@ _VOICE_ADD_POLY_SEND_KEY_EVENT:
 ; If the synth's LFO delay is not set to 0, reset the LFO delay accumulator.
     LDAA    M_PATCH_BUFFER_EDIT + PATCH_LFO_DELAY
     BEQ     _VOICE_ADD_POLY_IS_LFO_SYNC_ON?
+
     LDD     #0
     STD     <M_LFO_DELAY_ACCUMULATOR
     CLR     M_LFO_FADE_IN_SCALE_FACTOR
@@ -6619,6 +6636,7 @@ _VOICE_ADD_POLY_IS_LFO_SYNC_ON?:
 ; maximum positive value to coincide with the 'Key On' event.
     LDAA    M_PATCH_BUFFER_EDIT + PATCH_LFO_SYNC
     BEQ     _VOICE_ADD_POLY_LOAD_PITCH_TO_EGS
+
     LDD     #$7FFF
     STD     <M_LFO_PHASE_ACCUMULATOR
 
@@ -6688,6 +6706,7 @@ VOICE_REMOVE:
     LDAA    <M_NOTE_KEY
     LDAB    M_MONO_POLY
     BEQ     _SYNTH_IS_POLY
+
     JMP     _VOICE_REMOVE_SYNTH_IS_MONO
 
 _SYNTH_IS_POLY:
@@ -7224,6 +7243,7 @@ _VOICE_REMOVE_ACTIVE_EVENT_FOUND:
 VOICE_REMOVE_MONO_FIND_HIGHEST_KEY:
     DECB
     BNE     _FIND_HIGHEST_IS_VOICE_EVENT_CLEAR?
+
     RTS
 
 _FIND_HIGHEST_IS_VOICE_EVENT_CLEAR?:
@@ -7234,6 +7254,7 @@ _FIND_HIGHEST_IS_VOICE_EVENT_CLEAR?:
 ; entry, store this key number instead.
     SUBA    <M_NOTE_KEY_LAST
     BMI     _FIND_HIGHEST_KEY_LOOP_INCREMENT
+
     BSR     VOICE_REMOVE_MONO_SET_LEGATO_NOTE
 
 _FIND_HIGHEST_KEY_LOOP_INCREMENT:
@@ -7337,7 +7358,7 @@ _INACTIVE_VOICE_SEARCH_LOOP:
     LDX     #M_KEY_EVENT_BUFFER
     ABX
     TIM     #KEY_EVENT_ACTIVE, 0,x
-    BEQ     _SETUP_LOOP_2
+    BEQ     _VOICE_ADD_FOUND_INACTIVE_KEY
 
     INCB
     ANDB    #%1111                              ; B = B % 16.
@@ -7346,18 +7367,19 @@ _INACTIVE_VOICE_SEARCH_LOOP:
 
     RTS
 
-_SETUP_LOOP_2:
+_VOICE_ADD_FOUND_INACTIVE_KEY:
     STAB    <M_KEY_EVENT_CURRENT
-    LDAA    #16
-    LDAB    <M_KEY_EVENT_CURRENT
 
 ; @TODO: Why does this loop twice?
 ; This code also appears in the DX7 SER7 ROM. The equivalent function
 ; in the SER7 ROM is located at 0xD186.
+    LDAA    #16
+    LDAB    <M_KEY_EVENT_CURRENT
 
 _INACTIVE_VOICE_SEARCH_LOOP_2:
     INCB
     ANDB    #%1111                              ; B = B % 16.
+
     LDX     #M_KEY_EVENT_BUFFER
     ABX
     TIM     #KEY_EVENT_ACTIVE, 0,x
@@ -7775,8 +7797,10 @@ _CRT_READ_WRITE_IS_FINISHED?:
 ; The RW flags register stores the loop index in the lower 5 bits.
     BITA    #%100000
     BEQ     _CRT_RW_LOOP
+
     TST     M_CRT_RW_FLAGS
     BPL     _CRT_READ_WRITE_ALL_END_READ
+
     CLRA
     BRA     _END_CRT_READ_WRITE_ALL
 
@@ -8000,6 +8024,7 @@ DELAY_LOOP_START:
     PULX
     DECB
     BNE     DELAY_LOOP_START                    ; If ACCB > 0, loop.
+
     PULB
     PULA
     RTS
@@ -8370,6 +8395,7 @@ _PATCH_SERIALISE_COPY_OPERATOR_LOOP:
 ; Decrement loop index.
     DEC     $AB
     BEQ     _PATCH_SERIALISE_COPY_PATCH_VALUES  ; If 0xAB > 0, loop.
+
     JMP     _PATCH_SERIALISE_COPY_OPERATOR_LOOP
 
 ; Copy the 8 pitch EG values, then copy the algorithm value.
@@ -10168,6 +10194,7 @@ _PARSE_PITCH_EG_LVL_VALUES:
     STX     <$AB
     CMPA    #8
     BNE     _PARSE_PITCH_EG_LVL_VALUES
+
     RTS
 
 ; ==============================================================================
@@ -10342,10 +10369,12 @@ _CALCULATE_AMP_MOD_LOOP:
     PSHA
     BSR     MOD_AMP_SUM_MOD_SOURCE
     BCS     _CALCULATE_AMP_MOD_OVERFLOW
+
     INX
     PULA
     DECA
     BNE     _CALCULATE_AMP_MOD_LOOP             ; If A > 0, loop.
+
     BRA     _STORE_AMP_MOD_FACTOR
 
 _CALCULATE_AMP_MOD_OVERFLOW:
@@ -10366,10 +10395,12 @@ _CALCULATE_EG_BIAS_LOOP:
     PSHA
     BSR     MOD_SUM_MOD_SOURCE_EG_BIAS
     BCS     _CALCULATE_EG_BIAS_OVERFLOW
+
     INX
     PULA
     DECA
     BNE     _CALCULATE_EG_BIAS_LOOP
+
     BRA     _ADD_EG_BIAS
 
 ; In case of overflow, clear the pushed value on the stack.
@@ -10380,6 +10411,7 @@ _CALCULATE_EG_BIAS_OVERFLOW:
 _ADD_EG_BIAS:
     ADDB    <M_EG_BIAS_TOTAL_RANGE
     BCC     _END_MOD_PROCESS_INPUT_SOURCES
+
     LDAB    #$FF
 
 _END_MOD_PROCESS_INPUT_SOURCES:
@@ -10434,6 +10466,7 @@ MOD_CALCULATE_SOURCE_SCALED_INPUT:
 ; Set to 0xFF in the case of overflow.
     ADDA    <M_EG_BIAS_TOTAL_RANGE
     BCC     _STORE_EG_BIAS
+
     LDAA    #$FF
 
 _STORE_EG_BIAS:
@@ -10493,6 +10526,7 @@ MOD_AMP_SUM_MOD_SOURCE:
 
 ; If the value overflows, set to 0xFF.
     BCC     _END_MOD_AMP_SUM_MOD_SOURCE
+
     LDAB    #$FF
 
 _END_MOD_AMP_SUM_MOD_SOURCE:
@@ -10526,8 +10560,10 @@ MOD_SUM_MOD_SOURCE_EG_BIAS:
     INX
     BITA    #%100
     BEQ     _END_MOD_SUM_MOD_SOURCE_EG_BIAS
+
     ADDB    0,x
     BCC     _END_MOD_SUM_MOD_SOURCE_EG_BIAS
+
     LDAB    #$FF
 
 _END_MOD_SUM_MOD_SOURCE_EG_BIAS:
@@ -10554,10 +10590,10 @@ _END_MOD_SUM_MOD_SOURCE_EG_BIAS:
 
 PATCH_ACTIVATE_SCALE_LFO_SPEED:
     LDAA    0,x
+    BNE     _PATCH_ACTIVATE_LFO_SPEED_NON_ZERO
 
 ; If the LFO speed is set to zero, clamp it to a minimum of '1'. This is
 ; done so that the LFO software arithmetic works.
-    BNE     _PATCH_ACTIVATE_LFO_SPEED_NON_ZERO
     INCA
     BRA     _PATCH_ACTIVATE_LFO_CLAMP_AT_MINIMUM
 
@@ -10627,6 +10663,7 @@ _ROTATE_LOOP:
     RORB
     DEC     $AC
     BNE     _ROTATE_LOOP
+
     RTS
 
 
@@ -10646,7 +10683,7 @@ _ROTATE_LOOP:
 PITCH_BEND_PARSE:
     LDAB    M_PITCH_BEND_INPUT
 
-; Shift right to quantise the incoming pitch-bend value to 0-127.
+; Shift right to scale the incoming pitch-bend value to 0-127.
 ; Use this as an index into the pitch-bend table.
     LSRB
     LDX     #TABLE_PITCH_BEND
@@ -11272,6 +11309,7 @@ _PORTA_PROCESS_GET_PITCH_INCREMENT:
     CPX     <M_VOICE_FREQ_PORTA_FINAL
     XGDX
     BCS     _PORTA_PROCESS_STORE_FREQ_UP
+
     LDD     <M_VOICE_FREQ_PORTA_FINAL
 
 _PORTA_PROCESS_STORE_FREQ_UP:
@@ -11338,6 +11376,7 @@ _GET_GLISSANDO_PITCH_LSB:
     ASLA
     DECB
     BNE     _GET_GLISSANDO_PITCH_LSB
+
     STAA    <M_VOICE_FREQ_PORTA_NEXT_LSB
 
 ; Reload the newly calculated NEXT glissando frequency, and store it in
@@ -11447,9 +11486,8 @@ _IS_ENV_STEP_5?:
 
     JMP     _INCREMENT_POINTERS
 
-; Load the pitch EG values, clamping the index at 3.
-
 _PROCESS_EG_STAGE:
+; Load the pitch EG values, clamping the index at 3.
     LDX     #M_PATCH_PITCH_EG_VALUES
     CMPA    #3
     BCS     _LOAD_PITCH_EG_RATE
@@ -11862,6 +11900,7 @@ LFO_GET_AMPLITUDE:
 ; counter. If the LSB is '0', it is set to '1'.
     LDAB    M_LFO_DELAY_INCREMENT
     BNE     _INCREMENT_FADE_IN_COUNTER
+
     LDAB    #1
 
 _INCREMENT_FADE_IN_COUNTER:
@@ -12055,7 +12094,7 @@ TABLE_LFO_SIN:
 MIDI_INIT:
     LDAA    #%1100
     STAA    <RATE_MODE_CTRL
-    LDAA    #SCI_RIE_RE_TE
+    LDAA    #(SCI_CTRL_TE | SCI_CTRL_RE | SCI_CTRL_RIE | SCI_CTRL_TDRE)
     STAA    <SCI_CTRL_STATUS
 
 ; Reading STATUS, then reading RECEIVE will clear Status[RDRF].
@@ -12138,6 +12177,7 @@ _HANDLER_SCI_TDR_NOT_EMPTY:
     LDX     <M_MIDI_BUFFER_TX_PTR_READ
     CPX     <M_MIDI_BUFFER_TX_PTR_WRITE
     BEQ     _HANDLER_SCI_TX_BUFFER_EMPTY
+
     LDAA    0,x
     STAA    <SCI_TRANSMIT
     INX
@@ -12154,7 +12194,7 @@ _END_HANDLER_SCI:
     RTI
 
 _HANDLER_SCI_TX_BUFFER_EMPTY:
-    LDAA    #SCI_RIE_RE_TE
+    LDAA    #(SCI_CTRL_TE | SCI_CTRL_RE | SCI_CTRL_RIE | SCI_CTRL_TDRE)
     STAA    <SCI_CTRL_STATUS
     CLR     M_MIDI_TX_DATA_PRESENT
     RTI
@@ -12164,6 +12204,7 @@ _HANDLER_SCI_SET_OVERRUN_FRAMING_ERROR:
     STAA    <M_MIDI_BUFFER_ERROR_CODE
     BSR     MIDI_RESET_RX_BUFFER
     LDAA    <SCI_RECEIVE
+
     RTI
 
 
@@ -12270,13 +12311,16 @@ MIDI_TX:
     LDX     <M_MIDI_BUFFER_TX_PTR_WRITE
     STAA    0,x
 
-; 0x23F3 is the last address within the TX buffer.
-; If the loop hasn't reached the last address, branch.
-    CPX     #$23F3
+; Check whether the MIDI TX write buffer has reached the last address within
+; the MIDI TX buffer.
+    CPX     #(M_MIDI_BUFFER_TX + MIDI_BUFFER_TX_SIZE - 1)
+; If the ring buffer hasn't reached the last address, branch.
     BNE     _INCREMENT_TX_PTR
 
-; 0x233F is the byte BEFORE the TX buffer.
-    LDX     #$233F
+; If the pointer pointed to the last address in the TX buffer, load the last
+; address BEFORE the TX buffer, prior to the pointer being incremented and
+; stored.
+    LDX     #M_MIDI_BUFFER_TX - 1
 
 _INCREMENT_TX_PTR:
     INX
@@ -12284,13 +12328,14 @@ _INCREMENT_TX_PTR:
 ; Check for a MIDI buffer overflow.
     CPX     <M_MIDI_BUFFER_TX_PTR_READ
     BEQ     MIDI_TX
+
     STX     <M_MIDI_BUFFER_TX_PTR_WRITE
     LDAA    #1
     STAA    M_MIDI_TX_DATA_PRESENT
 
 ; Enable TX, and RX.
 ; Enable TX interrupts, and RX interrupts.
-    LDAA    #SCI_RIE_RE_TIE_TE
+    LDAA    #(SCI_CTRL_TE | SCI_CTRL_TIE | SCI_CTRL_RE | SCI_CTRL_RIE | SCI_CTRL_TDRE)
     STAA    <SCI_CTRL_STATUS
     RTS
 
