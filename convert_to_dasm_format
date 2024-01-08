@@ -92,9 +92,27 @@ def convert_data_directives(input_text):
     """
 
     converted_source = input_text
-    converted_source = converted_source.replace("FCB", "DC.B")
-    converted_source = converted_source.replace("FDB", "DC.W")
-    converted_source = converted_source.replace("FCC", "DC")
+
+    converted_source = re.sub(
+        r"\bFCB\b",
+        "DC.B",
+        converted_source,
+        flags=re.MULTILINE
+    )
+
+    converted_source = re.sub(
+        r"\bFDB\b",
+        "DC.W",
+        converted_source,
+        flags=re.MULTILINE
+    )
+
+    converted_source = re.sub(
+        r"\bFCC\b",
+        "DC",
+        converted_source,
+        flags=re.MULTILINE
+    )
 
     return converted_source
 
