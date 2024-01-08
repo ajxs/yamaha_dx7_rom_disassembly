@@ -28,7 +28,7 @@ def compare_binary_files():
         with open(PATH_ORIGINAL, "rb") as file_original, open(PATH_REBUILD, "rb") as file_rebuild:
             contiguous_bytes = 0
             total_equal_bytes = 0
-            start_address = START_ADDR_OFFSET
+            start_address = 0
 
             for i in range(TOTAL_BYTES):
                 # Compare the current byte in both binaries.
