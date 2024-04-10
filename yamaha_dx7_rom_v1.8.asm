@@ -369,7 +369,7 @@ M_TEST_MODE_BUTTON_COMBO_STATE:           equ  $97
 ; This variable seems to hold the source of the last front-panel input event,
 ; with the value incremented.
 ; This appears to also contain a null value of zero.
-M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED:    equ  $98
+M_LAST_FRONT_PANEL_INPUT_ALTERNATE:    equ  $98
 
 ; This flag is set when the 'Edit/Char' button is held down during
 ; editing a patch name. It causes the front panel buttons to input
@@ -905,7 +905,7 @@ UI_MODE_SET_MEM_PROTECT:                  equ  6
 ; ==============================================================================
 INPUT_MODE_PLAY:                          equ  0
 INPUT_MODE_EDIT:                          equ  1
-INPUT_MODE_FN:                            equ  2
+INPUT_MODE_FUNCTION:                      equ  2
 
 
 ; ==============================================================================
@@ -1045,7 +1045,7 @@ TEST_MAIN_LOOP:
 ;
 ; ==============================================================================
 TEST_MAIN_FUNCTIONS_1:
-    TST     M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    TST     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     BNE     _IS_LAST_BTN_NO
 
     RTS
@@ -1075,7 +1075,7 @@ _IS_TEST_STG_8:
 
 ; Test if front-panel button 1 was pressed.
 ; This variable is the front-panel button index + 1.
-    LDAB    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    LDAB    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CMPB    #(BUTTON_1 + 1)
     BNE     _IS_BUTTON_17_PRESSED
 
@@ -1120,7 +1120,7 @@ _TEST_STAGE_5:
     JSR     TEST_STAGE_5_AD
 
 _END_TEST_MAIN_FUNCTIONS_1:
-    CLR     M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    CLR     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CLR     M_LAST_FRONT_PANEL_INPUT
 
     RTS
@@ -1657,7 +1657,7 @@ TEST_STAGE_3_SWITCHES:
 EXPECTED_SWITCH_INPUT:                    equ $2580
 
 ; ==============================================================================
-    LDAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    LDAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CMPA    #40
     BLS     _IS_TEST_ALREADY_COMPLETE
 
@@ -1736,7 +1736,7 @@ EXPECTED_KEY:                             equ $2580
 
 ; ==============================================================================
 ; Test whether the last analog input event was a 'Key Down' event.
-    LDAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    LDAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CMPA    #INPUT_KEYBOARD_KEY_PRESSED
     BEQ     _LAST_INPUT_WAS_KEY_DOWN
 
@@ -2541,7 +2541,7 @@ _VALIDATE_OPERATOR_STATUS:
 _VALIDATE_INPUT_MODE:
 ; Checks that the synth's input mode is set to a valid value.
 ; If it's set to an invalid value, the synth is set to 'Function Mode'.
-    LDAA    #INPUT_MODE_FN
+    LDAA    #INPUT_MODE_FUNCTION
     CMPA    M_INPUT_MODE
     BHI     _VALIDATE_UI_MODE
 
@@ -2719,10 +2719,10 @@ MAIN_PROCESS_INPUT:
 ; If the last analog input source value is '0', or above '43', then the last
 ; physical user action was something other than a button press.
 ; In this case, return.
-    LDAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    LDAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     BEQ     _END_MAIN_PROCESS_INPUT
 
-    CLR     M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    CLR     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CMPA    #INPUT_DATA_ENTRY
     BHI     _END_MAIN_PROCESS_INPUT             ; If A > 43, branch.
 
@@ -2737,16 +2737,13 @@ _IS_MEMORY_PROTECTED:
     BNE     _IS_EDITING_PATCH_NAME
 
 ; Was the triggering button code above '33'?
-; Since the 'M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED' is incremented by 1 when
+; Since the 'M_LAST_FRONT_PANEL_INPUT_ALTERNATE' is incremented by 1 when
 ; the source is a front-panel button, this ensures that any non-numeric
 ; front-panel button press is not handled.
     CMPA    #33
     BCS     _MAIN_PROCESS_INPUT_END              ; If A > 33, return.
 
 _IS_EDITING_PATCH_NAME:
-; If the user is in the process of editing a patch name, and is in
-; 'ASCII Input Mode' capture all button input, and handle it in this
-; handler. The 'Key Transpose Active' flag is cleared at this point.
     CLR     M_EDIT_KEY_TRANSPOSE_ACTIVE
     TST     M_PATCH_NAME_EDIT_ASCII_MODE_ENABLED
     BNE     _MAIN_PROCESS_INPUT_PATCH_NAME_EDIT_ASCII_MODE
@@ -2855,6 +2852,9 @@ _MAIN_PROCESS_INPUT_END:
 
 
 _MAIN_PROCESS_INPUT_PATCH_NAME_EDIT_ASCII_MODE:
+; If the user is in the process of editing a patch name, and is in
+; 'ASCII Input Mode' capture all button input, and handle it in this
+; handler.
     JSR     INPUT_EDIT_PATCH_NAME_ASCII_MODE
     RTS
 
@@ -2888,7 +2888,7 @@ TABLE_INPUT_MODE_PLAY:
     DC.W BTN_FUNC
     DC.W BTN_YES_NO_SEND_MIDI
     DC.W BTN_YES_NO_SEND_MIDI
-    DC.W BTN_HNDLR_42
+    DC.W BTN_STORE_RELEASED
     DC.W BTN_SLIDER
 
 ; ==============================================================================
@@ -2938,7 +2938,7 @@ TABLE_INPUT_MODE_EDIT:
     DC.W BTN_FUNC
     DC.W BTN_YES_NO_SEND_MIDI                    ; Index 40.
     DC.W BTN_YES_NO_SEND_MIDI
-    DC.W BTN_HNDLR_42
+    DC.W BTN_STORE_RELEASED
     DC.W BTN_SLIDER
 
 ; ==============================================================================
@@ -3178,7 +3178,7 @@ HANDLER_IRQ:
     PSHB
     JSR     READ_BYTE_FROM_SUB_CPU
     CMPA    #158
-    BLS     _IS_BTN_DOWN_EVENT
+    BLS     _HANDLER_IRQ_IS_BUTTON_PRESSED_EVENT
 
 ; An 'origin' value above 158 indicates that this data originates from a
 ; keyboard event. The first data byte is the source, indicating which key
@@ -3195,21 +3195,21 @@ HANDLER_IRQ:
     STAA    <M_NOTE_VEL
 
 ; The DX7 considers a key event with zero velocity to be a 'Key Up' event.
-    BEQ     _KEY_DOWN_VELOCITY_IS_ZERO
+    BEQ     _HANDLER_IRQ_KEY_PRESSED_VELOCITY_IS_ZERO
 
 ; Handle a 'Key Down' event.
     CLI
     LDAA    #INPUT_KEYBOARD_KEY_PRESSED
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
-    JSR     INPUT_KEY_DOWN
+    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    JSR     INPUT_KEY_PRESSED
     JMP     HANDLER_IRQ_EXIT
 
-_KEY_DOWN_VELOCITY_IS_ZERO:
+_HANDLER_IRQ_KEY_PRESSED_VELOCITY_IS_ZERO:
     CLI
-    JSR     INPUT_KEY_UP
+    JSR     INPUT_KEY_RELEASED
     JMP     HANDLER_IRQ_EXIT
 
-_IS_BTN_DOWN_EVENT:
+_HANDLER_IRQ_IS_BUTTON_PRESSED_EVENT:
 ; A value of '152' indicates a 'Button Pressed' event.
     CMPA    #152
     BNE     _HANDLER_IRQ_IS_BUTTON_RELEASED_EVENT
@@ -3235,7 +3235,7 @@ _IS_BTN_DOWN_EVENT:
 INPUT_FRONT_PANEL_BUTTON_PRESSED:
     STAA    M_LAST_FRONT_PANEL_INPUT
     INCA
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     DECA
     PSHA
 
@@ -3252,7 +3252,7 @@ INPUT_FRONT_PANEL_BUTTON_PRESSED:
     CMPA    #BUTTON_YES_UP
     BNE     _BTN_NOT_YES
 
-    CLR     M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    CLR     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
 
 ; Set IO Port 2 to indicate that the CPU is not ready to read from the
 ; sub-CPU, and jump to the diagnostic tests.
@@ -3267,7 +3267,7 @@ _BTN_NOT_YES:
     LDAA    M_CURRENT_PARAM_FUNCTION_MODE
     STAA    M_LAST_FRONT_PANEL_INPUT
     INCA
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     BRA     _END_INPUT_FRONT_PANEL_BUTTON_RELEASED
 
 _TEST_MODE_PROMPT_NOT_ACTIVE:
@@ -3333,7 +3333,7 @@ _BUTTON_STORE_RELEASED:
     CLR     M_PATCH_READ_OR_WRITE
     LDAA    #BUTTON_STORE_RELEASED
     STAA    M_LAST_FRONT_PANEL_INPUT
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
 
 _PATCH_NAME_EDIT_ASCII_MODE_ACTIVE:
     RTS
@@ -3403,7 +3403,7 @@ _HANDLER_IRQ_IS_ANALOG_INPUT_EVENT:
 
 INPUT_ANALOG_END:
     LDAA    #INPUT_FINISHED
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     JMP     HANDLER_IRQ_EXIT
 
 
@@ -3575,7 +3575,7 @@ INPUT_SLIDER:
     LDAB    M_INPUT_MODE
     BNE     _LOAD_EDIT_PARAM
 
-    LDAB    #INPUT_MODE_FN
+    LDAB    #INPUT_MODE_FUNCTION
 
 _LOAD_EDIT_PARAM:
 ; Load a pointer to the 'Slider Edit Parameters' table.
@@ -3597,7 +3597,7 @@ _LOAD_EDIT_PARAM:
     LDAB    M_INPUT_MODE
     BNE     _LOAD_MAX_VALUE_TABLE
 
-    LDAB    #INPUT_MODE_FN
+    LDAB    #INPUT_MODE_FUNCTION
 
 _LOAD_MAX_VALUE_TABLE:
 ; Load the pointer to the correct maximum value table, depending on what
@@ -3619,7 +3619,7 @@ _LOAD_MAX_VALUE_TABLE:
     STAA    <M_UP_DOWN_INCREMENT
 
     LDAA    #INPUT_DATA_ENTRY
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ZERO_INDEXED
+    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     STAA    M_LAST_FRONT_PANEL_INPUT
 
     RTS
@@ -3915,7 +3915,7 @@ BTN_FUNC:
 
 
 INPUT_RESET_TO_FN_MODE:
-    LDAA    #INPUT_MODE_FN
+    LDAA    #INPUT_MODE_FUNCTION
     STAA    M_INPUT_MODE
     LDAA    #UI_MODE_FUNCTION
     STAA    M_MEM_SELECT_UI_MODE
@@ -4077,34 +4077,34 @@ str_eg_copy_to_op:   DC " to OP?", 0
 
 
 ; ==============================================================================
-; BTN_HNDLR_42
+; BTN_STORE_RELEASED
 ; ==============================================================================
 ; LOCATION: 0xCB99
 ;
 ; DESCRIPTION:
-; I currently don't know what input triggers this handler. It's triggered from
-; 'button input 42'.
+; Button handler for when the 'Store' button is released.
 ;
 ; ==============================================================================
-BTN_HNDLR_42:
+BTN_STORE_RELEASED:
     LDAA    M_INPUT_MODE
-    CMPA    #INPUT_MODE_FN
+    CMPA    #INPUT_MODE_FUNCTION
     BEQ     BTN_CLEAR_RW_FLAG_AND_EXIT
 
 ; Is the synth in 'Edit' mode?
     CMPA    #INPUT_MODE_EDIT
-    BNE     _BTN_HANDLER_42_INPUT_MODE_PLAY
+    BNE     _BTN_STORE_RELEASED_PLAY_MODE
 
     LDAA    M_CURRENT_PARAM_EDIT_MODE
 
-_END_BTN_HANDLER_42:
+_END_BTN_STORE_RELEASED:
     STAA    M_LAST_PRESSED_BTN
     JSR     UI_PRINT_MAIN
+
     RTS
 
-_BTN_HANDLER_42_INPUT_MODE_PLAY:
+_BTN_STORE_RELEASED_PLAY_MODE:
     LDAA    M_PATCH_NUMBER_CURRENT
-    BRA     _END_BTN_HANDLER_42
+    BRA     _END_BTN_STORE_RELEASED
 
 BTN_CLEAR_RW_FLAG_AND_EXIT:
     CLR     M_PATCH_READ_OR_WRITE
@@ -4761,7 +4761,7 @@ _IS_SYNTH_IN_EDIT_MODE:
     BEQ     _IS_NAME_EDIT_MODE
 
 ; Is the synth in 'Function' mode?
-    CMPA    #INPUT_MODE_FN
+    CMPA    #INPUT_MODE_FUNCTION
     BEQ     _FUNCTION_MODE
 
     RTS
@@ -6238,7 +6238,7 @@ _VOICE_SEARCH_FOR_ACTIVE_KEY_EVENT_END:
 
 
 ; ==============================================================================
-; INPUT_KEY_DOWN
+; INPUT_KEY_PRESSED
 ; ==============================================================================
 ; DESCRIPTION:
 ; The main keyboard 'Key Down' event handler.
@@ -6246,7 +6246,7 @@ _VOICE_SEARCH_FOR_ACTIVE_KEY_EVENT_END:
 ; triggering note on the synthesiser.
 ;
 ; ==============================================================================
-INPUT_KEY_DOWN:
+INPUT_KEY_PRESSED:
     JSR     MIDI_TX_NOTE_ON
 ; Falls-through below to the voice add function.
 
@@ -6698,7 +6698,7 @@ _VOICE_ADD_POLY_LOAD_PITCH_TO_EGS:
 
 
 ; ==============================================================================
-; INPUT_KEY_UP
+; INPUT_KEY_RELEASED
 ; ==============================================================================
 ; LOCATION: 0xD529
 ;
@@ -6709,7 +6709,7 @@ _VOICE_ADD_POLY_LOAD_PITCH_TO_EGS:
 ; to the released note on the synthesiser.
 ;
 ; ==============================================================================
-INPUT_KEY_UP:
+INPUT_KEY_RELEASED:
     JSR     MIDI_TX_NOTE_ON
 ; Falls-through to the voice remove function.
 
@@ -13449,7 +13449,7 @@ MIDI_RX_CC_7_VOLUME:
 ; ==============================================================================
 MIDI_RX_CC_6_FN_DATA_INPUT:
     LDAB    M_INPUT_MODE
-    CMPB    #INPUT_MODE_FN
+    CMPB    #INPUT_MODE_FUNCTION
     BNE     MIDI_RX_CC_END
 
     TST     M_CURRENT_PARAM_FUNCTION_MODE

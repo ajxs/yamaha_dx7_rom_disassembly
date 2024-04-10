@@ -8,11 +8,9 @@ The DX7 runs on a Hitachi HD63B03RP CPU. Among other things, the DX7's firmware 
 The best place to start investigating the firmware is the *reset vector* located at `0xFFFE`. This specifies the location to begin execution upon reset. This points to the `HANDLER_RESET` subroutine, which is responsible for initialising the synth's peripherals, and the global variables stored in memory. Upon completion, execution falls through to the `MAIN_LOOP` subroutine, from which the synth's core functionality is facilitated. The `HANDLER_OCF` function is called periodically on timer interrupts. This is where the synth's periodic functionality is called, such as updating the synth's pitch, and amplitude modulation. The `HANDLER_SCI` subroutine is responsible for handling MIDI input, and output.
 
 ## Building the ROM
-The project's `makefile` includes a recipe for building the binary from source using the [dasm](https://dasm-assembler.github.io/ "dasm") assembler. Simply install dasm, and Python 3 if you don't already have it, and run `make` in the source directory.  The script will create an intermediate assembly file in dasm's required format (`dasm_input.asm`) and assemble the binary.
+The project's `makefile` includes a recipe for building the binary from source using the [dasm](https://dasm-assembler.github.io/ "dasm") assembler. If you have dasm and GNU Make installed, you can run `make` in the source directory to assemble the binary.
 
 A `make compare` script is provided, which will run a script comparing the newly built binary against the original. This was implemented with the purpose of testing the integrity of the build process. The original ROM binary (`DX7-V1-8.OBJ`) required for this purpose can be obtained at [this](https://dbwbp.com/index.php/9-misc/37-synth-eprom-dumps "this") fantastic site.
-
-**Note:** The script used to convert to dasm's format makes certain assumptions about the source code. It was written with the purpose of rebuilding the original binary from source *identically*. Particularly, it forces extended addressing in load/store instructions to match the encoding of the original binary. If you are modifying the source code this may or may not suit your purposes. If this is the case, edit the `convert_to_dasm_format` script as required. This file contains appropriate documentation, and should be easy to understand. If you have any questions, or concerns please feel free to email me.
 
 ## Subroutine Prefixes
 The subroutine names are prefixed, to indicate the area of functionality.
@@ -77,8 +75,6 @@ The subroutine names are prefixed, to indicate the area of functionality.
 
 When this disassembly was originally published it was not possible to assemble the source code back into the original binary. One challenge in doing so was finding a suitable assembler which fully supported the HD6303 instruction set, and amending the source code to its particular requirements. After some research, I've settled on the [dasm](https://dasm-assembler.github.io/ "dasm") assembler. Dasm is open-source, cross-platform, and supports the Motorola 6800 architecture upon which the Hitachi HD6303 is based. It has some issues with HD6303 support, however the developers were kind enough to provide pre-written macros to add support for the 6303's unique instructions.
 
-In order to get the source to build, it's necessary to transform the source assembly's format to match dasm's specifications. This includes addressing the differences in how dasm encodes the source, compared with the original assembler used when building the factory ROM. Of particular note is the difference in addressing modes between the assemblers. With dasm defaulting to *direct addressing* of memory locations when possible, whereas the original ROM uses *extended addressing* in all cases.
-
 **Q: What kind of improvements can be made to the ROM? Is it possible to design new, and interesting functionality for the DX7?**
 
 **A:** The bulk of the DX7's sound synthesis is performed by two proprietary LSI chips: The *YM21290 EGS*, and the *YM21280 OPS*. The fundamental role of the DX7's firmware ROM is to interface with these two chips.
@@ -89,7 +85,7 @@ If you have a better imagination than I do for what to do with the firmware, fee
 
 **Q: Why did you use the V1.8 ROM?**
 
-**A:** For no other reason than this is the ROM version that I had available when I began the project. Version 1.8 is also the last *official* ROM from Yamaha to come included in factory units. If someone wanted to reverse-engineer the *Special Edition* ROM, or any other version, this annotated disassembly would make that task much easier. The v1.8, and 'Special Edition' ROMs have different locations for the same subroutines in memory, however the memory map is fundamentally similar. The hardest part of the firmware to reverse-engineer is the voice, and pitch modulation code, which to the best of my understanding is fundamentally similar between these two versions.
+**A:** For no other reason than this being the ROM version that I had available when I began the project. Version 1.8 is also the last *official* ROM from Yamaha to come included in factory units. If someone wanted to reverse-engineer the *Special Edition* ROM, or any other version, this annotated disassembly would make that task much easier. The v1.8, and 'Special Edition' ROMs share most of their code. The hardest part of the firmware to reverse-engineer is the voice, and pitch modulation code, which to the best of my understanding is fundamentally similar between these two versions.
 
 **Q: What motivated you to do this?**
 
@@ -99,10 +95,20 @@ If you have a better imagination than I do for what to do with the firmware, fee
 
 **A:** Absolutely! If you have any suggestions, corrections, or questions, please [get in touch](https://ajxs.me "get in touch")! Alteratively, feel free to fork the project, and make a pull request to the master branch.
 
-**Q: Why not store the source code in dasm's format, instead of using an intermediate step in the build process?**
+**Q: Why target the source to the dasm assembler?**
 
-**A:** That's a good question. The tools I used for disassembling, and formatting the source code were apparently designed to match the format used by the [Motorola Freeware Assembler](http://stealth316.com/misc/motorola_cross_asm_manual.pdf "Motorola Freeware Assembler"). Every compiler has its particular quirks, however this format seems like a reasonable middle ground between the various 6800/6303 assembly dialects that exist in the wild. Dasm's particular format seems more novel, especially considering macros are required to support the 6303's immediate bitwise instructions (`AIM`, `OIM`, `TIM`), and how it handles arbitrarily specifying addressing modes.
+**A:** That's a good question. By default, the graphical disassembler I used (loosely) targetted the [Motorola Freeware Assembler](http://stealth316.com/misc/motorola_cross_asm_manual.pdf "Motorola Freeware Assembler"). Since first publishing this project, I've done more research into what kind of development tools the original developers may have used. It's likely they used one of Hitachi's 6301/6801 cross-assemblers. A manual for a Hitachi 6301/6801 cross-assembler can be seen [here](http://www.bitsavers.org/components/hitachi/_dataBooks/U29_Hitachi_ISIS-II_6301_Cross_Assembler_Users_Manual.pdf). Another interesting manual for a Hitachi 6301/6801 assembler text-editor can be seen [here](http://www.bitsavers.org/components/hitachi/_dataBooks/U24_Hitachi_6301_6801_Assembler_Text_Editor_Users_Manual.pdf). These assemblers only allowed for labels with a maximum length of 6 characters, which would have made them incompatible with my original disassembly. The [leftover symbol table data](https://ajxs.me/blog/Hacking_the_Yamaha_DX9_To_Turn_It_Into_a_DX7.html#leftover_data) in the DX9 binary confirms this limitation. Besides this, I'm not even sure how to find a copy of these contemporary assemblers, or how to run one. If you know, please contact me!
+
+After doing some research on what assembler would be best for the project, I settled on the [dasm](https://dasm-assembler.github.io/ "dasm") assembler. It has a great feature set, is free/open-source, and is available for a variety of platforms. I figure that keeping the modern format is more useful than trying to emulate the limitations of contemporary assemblers: Trying to understand how the firmware works is hard enough without being limited to six-character labels. I'm open to more discussion about this. If you have any insights, or opinions, please email me. I'd love to hear from you!
+
+Initially this repository contained a build script which converted the disassembly to dasm's format, and then assembled the final binary. Since then I decided to convert the entire disassembly to dasm's format. In doing this, I decided *not* to use dasm's local labels, and keep each label globally unique, so that the source code could be converted to an alternate assembler that didn't support local labels.
 
 ## Acknowledgements
 
 I would like to extend a sincere thank you to Jacques Mattheij for his contributions and insights, Ken Shirriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
+
+## Outstanding Questions
+
+* In the firmware there are two arrays used to track active key/note events: `M_MIDI_NOTE_EVENT_BUFFER`, which is used when adding/removing a note via MIDI, and `M_VOICE_STATUS`, which is used by the main `VOICE_ADD` and `VOICE_REMOVE` subroutines to track the status of individual voices. The MIDI voice status array is only checked when adding a voice via MIDI, but not used by the keyboard handlers. Was this part of some multitimbral functionality removed during development?
+
+* What is the purpose of the `M_LAST_FRONT_PANEL_INPUT_ALTERNATE` variable? This seems to track the same information as `M_LAST_FRONT_PANEL_INPUT`, however the codes for the front-panel numeric buttons are incremented. This allows for a null value of `0`, which is tested against in some cases. Why weren't these two variables consolidated?
