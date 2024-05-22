@@ -5202,18 +5202,18 @@ TABLE_PATCH_ACTIVATION_FUNCTION_PTRS:
     DC.W PATCH_ACTIVATE_LFO
     DC.W PATCH_ACTIVATE_EDIT_PARAM_END
     DC.W PATCH_ACTIVATE_LFO                      ; Index 8.
-    DC.W PATCH_ACTIVATE_OPERATOR_KBD_RATE_SCALING
+    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING_RATE
     DC.W PATCH_ACTIVATE_OPERATOR_PITCH_AND_ALG
     DC.W PATCH_ACTIVATE_OPERATOR_PITCH
     DC.W PATCH_ACTIVATE_OPERATOR_PITCH
     DC.W PATCH_ACTIVATE_OPERATOR_DETUNE
     DC.W PATCH_ACTIVATE_OPERATOR_EG_RATE
     DC.W PATCH_ACTIVATE_OPERATOR_EG_LEVEL
-    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING     ; Index 16.
-    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING
-    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING
-    DC.W PATCH_ACTIVATE_OPERATOR_KBD_RATE_SCALING
-    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING
+    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING_LEVEL     ; Index 16.
+    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING_LEVEL
+    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING_LEVEL
+    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING_RATE
+    DC.W PATCH_ACTIVATE_OPERATOR_KBD_SCALING_LEVEL
     DC.W PATCH_ACTIVATE_OPERATOR_KBD_VEL_SENS
     DC.W PATCH_ACTIVATE_PITCH_EG_VALUES
     DC.W PATCH_ACTIVATE_PITCH_EG_VALUES
@@ -8975,24 +8975,23 @@ PATCH_GET_PTR_TO_SELECTED_OP:
 
 
 ; ==============================================================================
-; PATCH_ACTIVATE_OPERATOR_KBD_SCALING
+; PATCH_ACTIVATE_OPERATOR_KBD_SCALING_LEVEL
 ; ==============================================================================
 ; LOCATION: 0xDBE8
 ;
 ; DESCRIPTION:
-; Parses the serialised keyboard scaling values, and constructs the operator
-; keyboard scaling curve for the selected operator.
+; Parses the serialised keyboard scaling levle values, and constructs the
+; operator keyboard scaling level curve for the selected operator.
 ;
 ; MEMORY USED:
-; For a detailed list of the registers used in this subroutine, refer to the
-; list of associated register definitions.
+; For a detailed list of the variables used in this subroutine, refer to the
+; list of associated local variables definitions.
 ;
 ; ==============================================================================
-PATCH_ACTIVATE_OPERATOR_KBD_SCALING:
+PATCH_ACTIVATE_OPERATOR_KBD_SCALING_LEVEL:
 ; ==============================================================================
 ; LOCAL VARIABLES
 ;
-; 'PATCH_LOAD_OPERATOR_KBD_SCALING' Specific Variables.
 ; The memory locations in 0xAx, to 0xBx are typically scratch registers, which
 ; serve multiple uses between the different periodic functions, such as the
 ; synth's voice subroutines. These are the variable definitions specific to
@@ -9864,19 +9863,18 @@ TABLE_PITCH_EG_RATE:
 
 
 ; ==============================================================================
-; PATCH_ACTIVATE_OPERATOR_KBD_RATE_SCALING
+; PATCH_ACTIVATE_OPERATOR_KBD_SCALING_RATE
 ; ==============================================================================
 ; LOCATION: 0xDF86
 ;
 ; DESCRIPTION:
-; Loads the 'Keyboard Rate Scaling' value for the current operator, and combines
-; it with the 'Amp Mod Sensitivity' value to create the 'combined' value
-; expected by the EGS' internal registers.
+; Loads the 'Keyboard Scaling Rate', and 'Amp Mod Sensitivity' values for the
+; current register, combines them, and writes the settings to the EGS.
 ;
 ; ==============================================================================
-PATCH_ACTIVATE_OPERATOR_KBD_RATE_SCALING:
+PATCH_ACTIVATE_OPERATOR_KBD_SCALING_RATE:
     JSR     PATCH_GET_PTR_TO_SELECTED_OP
-    LDAB    #13
+    LDAB    #PATCH_OP_RATE_SCALING
     ABX
     LDAB    0,x                                 ; Load KBD_RATE_SCALING into B.
     LDAA    1,x                                 ; Load AMP_MOD_SENS into A.
@@ -9886,9 +9884,9 @@ PATCH_ACTIVATE_OPERATOR_KBD_RATE_SCALING:
     ASLA
     ASLA
     ABA
-    LDAB    M_SELECTED_OPERATOR
 
 ; Store the combined value in the appropriate EGS register: 0x30E0[OP].
+    LDAB    M_SELECTED_OPERATOR
     LDX     #P_EGS_OP_SENS_SCALING
     ABX
     STAA    0,x
@@ -10934,8 +10932,8 @@ PATCH_ACTIVATE:
     STD     M_PATCH_ACTIVATE_OPERATOR_FN_PTR
     JSR     PATCH_ACTIVATE_CALL_FUNC_PER_OPERATOR
 
-; Load the operator keyboard scaling.
-    LDD     #PATCH_ACTIVATE_OPERATOR_KBD_SCALING
+; Load the operator keyboard scaling level.
+    LDD     #PATCH_ACTIVATE_OPERATOR_KBD_SCALING_LEVEL
     STD     M_PATCH_ACTIVATE_OPERATOR_FN_PTR
     JSR     PATCH_ACTIVATE_CALL_FUNC_PER_OPERATOR
 
@@ -10949,8 +10947,8 @@ PATCH_ACTIVATE:
     STD     M_PATCH_ACTIVATE_OPERATOR_FN_PTR
     JSR     PATCH_ACTIVATE_CALL_FUNC_PER_OPERATOR
 
-; Load the operator rate scaling.
-    LDD     #PATCH_ACTIVATE_OPERATOR_KBD_RATE_SCALING
+; Load the operator rate scaling rate.
+    LDD     #PATCH_ACTIVATE_OPERATOR_KBD_SCALING_RATE
     STD     M_PATCH_ACTIVATE_OPERATOR_FN_PTR
     JSR     PATCH_ACTIVATE_CALL_FUNC_PER_OPERATOR
 
@@ -10958,6 +10956,7 @@ PATCH_ACTIVATE:
     LDD     #PATCH_ACTIVATE_OPERATOR_DETUNE
     STD     M_PATCH_ACTIVATE_OPERATOR_FN_PTR
     JSR     PATCH_ACTIVATE_CALL_FUNC_PER_OPERATOR
+
     JSR     PATCH_ACTIVATE_PITCH_EG_VALUES
     JSR     PATCH_ACTIVATE_ALG_MODE
     JSR     PATCH_ACTIVATE_LFO
