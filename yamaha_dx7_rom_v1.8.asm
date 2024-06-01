@@ -662,8 +662,7 @@ M_PATCH_ACTIVATE_OPERATOR_FN_PTR:         equ  $2183
 ; The MSB of the note pitch word is used as an index into this curve data
 ; when looking up the scaling factor for a particular note.
 ; Length: 6 * 43.
-M_OPERATOR_KEYBOARD_SCALING:              equ  $2187
-M_OPERATOR_KEYBOARD_SCALING_2:            equ  $21B2
+M_OPERATOR_KEYBOARD_SCALING_LEVEL_CURVE:  equ  $2187
 
 ; Parsed Individual Operator Volume. Length: 6.
 M_OP_VOLUME:                              equ  $228B
@@ -8980,7 +8979,7 @@ PATCH_GET_PTR_TO_SELECTED_OP:
 ; LOCATION: 0xDBE8
 ;
 ; DESCRIPTION:
-; Parses the serialised keyboard scaling levle values, and constructs the
+; Parses the serialised keyboard scaling level values, and constructs the
 ; operator keyboard scaling level curve for the selected operator.
 ;
 ; MEMORY USED:
@@ -9075,10 +9074,10 @@ _PARSE_OPERATOR_OUTPUT_LEVEL:
     LDAA    0,x
     STAA    <K_OPERATOR_OUTPUT_LVL
 
-; Get a pointer to the end of the curve.
+; Setup a pointer to the end of the curve data for the first operator.
     LDAA    #43
     STAA    M_KBD_SCALE_CURVE_INDEX
-    LDX     #M_OPERATOR_KEYBOARD_SCALING_2
+    LDX     #M_OPERATOR_KEYBOARD_SCALING_LEVEL_CURVE + 43
     LDAB    M_SELECTED_OPERATOR
     LDAA    #43
     MUL
@@ -9456,7 +9455,7 @@ _VOICE_ADD_LOAD_OP_DATA_APPLY_KBD_SCALING:
     LDAB    <VA_LOOP_INDEX
     LDAA    #43
     MUL
-    LDX     #M_OPERATOR_KEYBOARD_SCALING
+    LDX     #M_OPERATOR_KEYBOARD_SCALING_LEVEL_CURVE
     ABX
 
 ; Use the MSB of the note pitch as an index into the keyboard scaling curve.
@@ -12101,9 +12100,8 @@ MIDI_INIT:
     LDAA    #(SCI_CTRL_TE | SCI_CTRL_RE | SCI_CTRL_RIE | SCI_CTRL_TDRE)
     STAA    <SCI_CTRL_STATUS
 
-; Reading STATUS, then reading RECEIVE will clear Status[RDRF].
-
 MIDI_RESET_BUFFERS:
+; Reading STATUS, then reading RECEIVE will clear Status[RDRF].
     LDAA    <SCI_CTRL_STATUS
     LDAA    <SCI_RECEIVE
     LDX     #M_MIDI_BUFFER_TX
@@ -12139,7 +12137,7 @@ HANDLER_SCI:
 
 ; Checks if Status[TDRE] is clear.
 ; If so the serial interface is ready to transmit new data.
-    BMI     _HANDLER_SCI_TDR_NOT_EMPTY
+    BMI     _HANDLER_SCI_READY_TO_TRANSMIT_DATA
 
     RTI
 
@@ -12176,7 +12174,7 @@ _HANDLER_SCI_SAVE_RX_PTR_AND_EXIT:
     STX     <M_MIDI_BUFFER_RX_PTR_WRITE
     RTI
 
-_HANDLER_SCI_TDR_NOT_EMPTY:
+_HANDLER_SCI_READY_TO_TRANSMIT_DATA:
     LDX     <M_MIDI_BUFFER_TX_PTR_READ
     CPX     <M_MIDI_BUFFER_TX_PTR_WRITE
     BEQ     _HANDLER_SCI_TX_BUFFER_EMPTY
@@ -12298,8 +12296,10 @@ MIDI_TX_TWO_BYTES:
 ; LOCATION: 0xE97F
 ;
 ; DESCRIPTION:
-; Adds a byte to the MIDI Transmit Buffer, to be transmitted at the next SCI
-; interrupt.
+; Pushes a MIDI message byte to the MIDI TX ring buffer, and sets the TIE
+; flag in the 'SCI Control Status' register. This will cause a TDRE interrupt
+; to be generated, which will send the MIDI message in the next SCI TDRE IRQ.
+; This happens in the 'HANDLER_SCI' SCI interrupt handler routine.
 ;
 ; ARGUMENTS:
 ; Registers:
