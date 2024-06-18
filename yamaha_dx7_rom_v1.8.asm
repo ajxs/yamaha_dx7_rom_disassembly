@@ -702,7 +702,7 @@ M_PORTA_UPDATE_VOICE_SWITCH:              equ  $232B
 ; This flag is used to determine whether pitch modulation should be updated
 ; in the interrupt cycle. The effect is that pitch-mod is processed once
 ; every two periodic timer interrupts.
-M_PITCH_UPDATE_TOGGLE:                    equ  $232C
+M_PITCH_EG_UPDATE_TOGGLE:                    equ  $232C
 
 ; The counter used to 'blink' the LED dot.
 M_COMPARE_PATCH_LED_BLINK_COUNTER:        equ  $232D
@@ -1373,7 +1373,7 @@ _END_TEST_STAGE_DECREMENT:
 ; Otherwise if complete the AD test stage flags are cleared.
 ;
 ; MEMORY USED:
-; * 0xFF: The AD test stage complete flag.
+; * M_TEST_STAGE_5_COMPLETION_STATES: The AD test stage complete flag.
 ;
 ; ==============================================================================
 TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG:
@@ -2284,12 +2284,8 @@ _TEST_RAM_LOOP:
 ;
 ; ARGUMENTS:
 ; Memory:
-; * 0xF9:   The source buffer pointer.
-; * 0xFB:   The destination buffer pointer.
-;
-; MEMORY USED:
-; * M_MEMCPY_PTR_SRC: The data source pointer used as an argument to memcpy.
-; * M_MEMCPY_PTR_DEST: The data dest pointer used as an argument to memcpy.
+; * M_MEMCPY_PTR_SRC:  The source buffer pointer.
+; * M_MEMCPY_PTR_DEST: The destination buffer pointer.
 ;
 ; ==============================================================================
 TEST_RAM_COPY_BLOCK_TO_TEMP:
@@ -11017,20 +11013,22 @@ HANDLER_OCF:
 
 _HANDLER_OCF_PROCESS_MODULATION:
 ; This variable is 'toggled' On/Off with each interrupt.
-; This flag is used to determine whether pitch modulation should be
-; updated in this interrupt. The effect is that pitch-mod is processed once
+; This flag is used to determine whether the pitch EG should be processed in
+; this interrupt. The effect is that pitch-mod is processed once
 ; every two interrupts.
-    COM     M_PITCH_UPDATE_TOGGLE
+    COM     M_PITCH_EG_UPDATE_TOGGLE
+
     JSR     LFO_GET_AMPLITUDE
     JSR     MOD_AMP_LOAD_TO_EGS
 
-; If there is received MIDI data pending processing, then ignore
-; updating the EGS with modulation data.
+; If there is received MIDI data pending processing, then don't process
+; portamento or the pitch EG.
     TST     M_MIDI_BUFFER_RX_PENDING
     BNE     _HANDLER_OCF_TX_ACTIVE_SENSING
 
     JSR     PORTA_PROCESS
-    TST     M_PITCH_UPDATE_TOGGLE
+
+    TST     M_PITCH_EG_UPDATE_TOGGLE
     BPL     _HANDLER_OCF_TX_ACTIVE_SENSING
 
     JSR     PITCH_EG_PROCESS
@@ -11153,7 +11151,7 @@ _PORTA_PROCESS_VOICE_8_TO_15:
     LDAB    #16
 
 _PORTA_PROCESS_SETUP_POINTERS:
-; Initialiase the pointers used within the function.
+; Initialise the pointers used within the function.
     LDX     #M_VOICE_PITCH_EG_CURR_LEVEL
     ABX
     STX     <M_VOICE_PITCH_EG_CURR_LVL_PTR
@@ -11182,10 +11180,9 @@ _PORTA_PROCESS_SETUP_POINTERS:
     LDAA    #8
     STAA    <M_PORTA_PROCESS_LOOP_IDX
 
+_PORTA_PROCESS_VOICE_LOOP:
 ; Store the current voice's target frequency as this voice's portamento
 ; final frequency. This value will be used in the calculations below.
-
-_PORTA_PROCESS_VOICE_LOOP:
     LDD     0,x
     STD     <M_VOICE_FREQ_PORTA_FINAL
 
