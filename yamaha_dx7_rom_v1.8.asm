@@ -6308,7 +6308,7 @@ _VOICE_ADD_SYNTH_IS_MONO:
 ; DESCRIPTION:
 ; This subroutine sets the 'Key Transpose' centre-note value.
 ; This function is called as part of the 'Voice Add' routine if the appropriate
-; flag is set to indicate that the synth is in 'Set Key Tranpose' mode,
+; flag is set to indicate that the synth is in 'Set Key Transpose' mode,
 ; indicating that next key note value is to be stored as the centre-note value.
 ;
 ; ==============================================================================
@@ -6344,7 +6344,7 @@ _VOICE_ADD_SET_KEY_TRANSPOSE_SAVE:
     STAA    M_PATCH_CURRENT_MODIFIED_FLAG
     JSR     LED_PRINT_PATCH_NUMBER
 
-; Clear the 'Key Tranpose Mode' flag.
+; Clear the 'Key Transpose Mode' flag.
     CLR     M_EDIT_KEY_TRANSPOSE_ACTIVE
     RTS
 
