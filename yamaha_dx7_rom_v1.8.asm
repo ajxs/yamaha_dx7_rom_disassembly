@@ -393,7 +393,10 @@ M_KEY_FREQ:                               equ  $9D
 M_KEY_FREQ_LOW:                           equ  $9E
 
 M_KEY_EVENT_CURRENT:                      equ  $AA
-M_VOICE_NOTE_CURRENT:                     equ  $AE
+
+M_ITOA_ORIGINAL_NUMBER:                   equ  $B4
+M_ITOA_POWERS_OF_TEN_PTR:                 equ  $B6
+
 M_PITCH_BEND_INPUT_SIGNED:                equ  $B8
 M_PITCH_BEND_STEP_VALUE:                  equ  $B9
 M_EG_BIAS_TOTAL_RANGE:                    equ  $BA
@@ -513,7 +516,7 @@ M_SELECTED_OPERATOR:                      equ  $209F
 ; This variable holds the last input event source.
 ; In contrast to the last button variable, this variable also tracks input
 ; events from the front-panel slider.
-M_LAST_FRONT_PANEL_INPUT:                       equ  $20A0
+M_LAST_FRONT_PANEL_INPUT:                 equ  $20A0
 
 ; The 'Input Mode' the synth is currently in.
 ; This is either, 'Play Mode', 'Edit Mode', or 'Function Mode'.
@@ -642,13 +645,19 @@ M_CRT_READ_WRITE_STATUS:                  equ  $2178
 M_CRT_WRITE_PATCH_COUNTER:                equ  $2179
 M_CRT_FORMAT_PATCH_INDEX:                 equ  $217A
 
-; These variables are used during the conversion of a stored integer into its
-; ASCII representation. They are used to hold the powers-of-ten of an integer.
-; For more specific information, refer to the 'CONVERT_INT_TO_STR' function.
-M_PARSED_INT_DIGITS:                      equ  $217C
-M_PARSED_INT_TENS:                        equ  $217D
-M_PARSED_INT_HNDRDS:                      equ  $217E
-M_PARSED_INT_THSNDS:                      equ  $217F
+; The following variables are used during the conversion of an integer into its
+; ASCII representation. Refer to the 'CONVERT_INT_TO_STR' function.
+M_ITOA_POWER_OF_TEN_INDEX                 equ  $217B
+; These four bytes are used to hold the converted ASCII value of the integer.
+M_ITOA_DIGITS:                            equ  $217C
+M_ITOA_TENS:                              equ  $217D
+M_ITOA_HUNDREDS:                          equ  $217E
+M_ITOA_THOUSANDS:                         equ  $217F
+; The count how many of each power of ten are in the remaining value.
+M_ITOA_ACCUMULATOR                        equ  $2180
+; The two-byte remainder after converting each sequential power of ten.
+M_ITOA_REMAINDER                          equ  $2181
+
 
 ; During the patch loading process, this variable is used as a pointer to
 ; hold a function address, which is called once for each of the synth's six
@@ -701,7 +710,7 @@ M_PORTA_UPDATE_VOICE_SWITCH:              equ  $232B
 ; This flag is used to determine whether pitch modulation should be updated
 ; in the interrupt cycle. The effect is that pitch-mod is processed once
 ; every two periodic timer interrupts.
-M_PITCH_EG_UPDATE_TOGGLE:                    equ  $232C
+M_PITCH_EG_UPDATE_TOGGLE:                 equ  $232C
 
 ; The counter used to 'blink' the LED dot.
 M_COMPARE_PATCH_LED_BLINK_COUNTER:        equ  $232D
@@ -4633,7 +4642,7 @@ LED_PRINT_PATCH_NUMBER:
     JSR     CONVERT_INT_TO_STR
 
 ; If the 'tens' slot is empty, don't display a number on LED2.
-    LDAB    M_PARSED_INT_TENS
+    LDAB    M_ITOA_TENS
     BEQ     _CLEAR_LED2
 
     LDX     #TABLE_LED_SEGMENT_MAPPING
@@ -4642,7 +4651,7 @@ LED_PRINT_PATCH_NUMBER:
 
 _PRINT_DIGITS:
     STAA    P_LED2
-    LDAB    M_PARSED_INT_DIGITS
+    LDAB    M_ITOA_DIGITS
     LDX     #TABLE_LED_SEGMENT_MAPPING
     ABX
     LDAA    0,x
@@ -7399,7 +7408,7 @@ MIDI_VOICE_ADD:
 _MIDI_VOICE_ADD_FIND_INACTIVE_VOICE_LOOP:
     LDX     #M_MIDI_NOTE_EVENT_BUFFER
     ABX
-    TIMX   #MIDI_VOICE_EVENT_ACTIVE, 0
+    TIMX    #MIDI_VOICE_EVENT_ACTIVE, 0
     BEQ     _MIDI_VOICE_ADD_FOUND_INACTIVE_VOICE
 
     INCB
@@ -7424,7 +7433,7 @@ _MIDI_VOICE_ADD_FIND_INACTIVE_VOICE_LOOP_2:
 
     LDX     #M_MIDI_NOTE_EVENT_BUFFER
     ABX
-    TIMX   #MIDI_VOICE_EVENT_ACTIVE, 0
+    TIMX    #MIDI_VOICE_EVENT_ACTIVE, 0
     BEQ     _MIDI_VOICE_ADD_SET_NEW_KEY_EVENT
 
     DECA
@@ -7510,7 +7519,7 @@ _DEACTIVATE_VOICE_LOOP:
 ; Test whether the current voice is active. If so, deactivate it by loading
 ; the key number associated with the key event, and removing the voice
 ; associated with that key number.
-    TIMX   #MIDI_VOICE_EVENT_ACTIVE, 0
+    TIMX    #MIDI_VOICE_EVENT_ACTIVE, 0
     BEQ     _DEACTIVATE_VOICE_LOOP_INCREMENT
 
     LDAB    0,x
@@ -7638,63 +7647,54 @@ PATCH_ACTIVATE_SCALE_VALUE:
 ;
 ; ==============================================================================
 CONVERT_INT_TO_STR:
-; ==============================================================================
-; LOCAL TEMPORARY VARIABLES
-; ==============================================================================
-_ORIGINAL_NUMBER:                         equ  $B4
-_POWERS_OF_TEN_PTR:                       equ  $B6
-_ITERATOR                                 equ  $217B
-_REMAINDER                                equ  $2181
-_COUNTER                                  equ  $2180
-
-; ==============================================================================
     PSHX
-    STD     _ORIGINAL_NUMBER
+    STD     M_ITOA_ORIGINAL_NUMBER
     LDX     #TABLE_POWERS_OF_TEN
-    STX     _POWERS_OF_TEN_PTR
+    STX     M_ITOA_POWERS_OF_TEN_PTR
 
     LDAB    #4
-    STAB    _ITERATOR
-    LDD     _ORIGINAL_NUMBER
+    STAB    M_ITOA_POWER_OF_TEN_INDEX
+    LDD     M_ITOA_ORIGINAL_NUMBER
 
 _CONVERT_DIGIT_LOOP:
-; This is the outer-loop responsible for each digit.
-    CLR     _COUNTER
+; This is the outer-loop responsible for converting each digit.
+    CLR     M_ITOA_ACCUMULATOR
 
 _TEST_POWER_OF_TEN_LOOP:
 ; Load the current power-of-ten, and subtract it from the value in ACCD.
-    LDX     _POWERS_OF_TEN_PTR
+    LDX     M_ITOA_POWERS_OF_TEN_PTR
     SUBD    0,x
-; If this subtraction sets the carry bit, advance the loop to the next lowest
-; power of ten.
+; If this subtraction sets the carry bit, indicating that the number is below
+; the current power of ten, advance the loop to the next lowest power of ten.
     BCS     _NEXT_POWER_OF_TEN
 
 ; If the number is still more than this power-of-ten, increment the counter,
 ; and perform the subtraction again.
-    INC     _COUNTER
+    INC     M_ITOA_ACCUMULATOR
     BRA     _TEST_POWER_OF_TEN_LOOP
 
 _NEXT_POWER_OF_TEN:
 ; Add the previously subtracted power-of-ten back to the number, since it's
 ; now negative.
-    LDX     _POWERS_OF_TEN_PTR
+    LDX     M_ITOA_POWERS_OF_TEN_PTR
     ADDD    0,x
 
 ; Increment the power-of-ten pointer.
     INX
     INX
-    STX     _POWERS_OF_TEN_PTR
+    STX     M_ITOA_POWERS_OF_TEN_PTR
 
-    STD     _REMAINDER
-    LDAA    _COUNTER
-    LDAB    _ITERATOR
+    STD     M_ITOA_REMAINDER
+
+    LDAA    M_ITOA_ACCUMULATOR
+    LDAB    M_ITOA_POWER_OF_TEN_INDEX
 
 ; Store the result digit.
-    LDX     #_ITERATOR
+    LDX     #M_ITOA_POWER_OF_TEN_INDEX
     ABX
     STAA    0,x
-    LDD     _REMAINDER
-    DEC     _ITERATOR
+    LDD     M_ITOA_REMAINDER
+    DEC     M_ITOA_POWER_OF_TEN_INDEX
     BNE     _CONVERT_DIGIT_LOOP
 
     PULX
@@ -14635,7 +14635,7 @@ _PRINT_RATIO_FREQ_COMPUTE_RATIO:
     ADDD    M_EDIT_RATIO_FREQ_PRINT_VALUE
     JSR     CONVERT_INT_TO_STR
     LDX     <M_MEMCPY_PTR_DEST
-    LDAA    M_PARSED_INT_THSNDS
+    LDAA    M_ITOA_THOUSANDS
 
 ; If the final value is below 1000, print a space in this column.
     BEQ     _PRINT_RATIO_FREQ_SPACE
@@ -14648,17 +14648,17 @@ _PRINT_RATIO_FREQ_SPACE:
 
 _PRINT_RATIO_FREQ:
     STAA    0,x
-    LDAA    M_PARSED_INT_HNDRDS
+    LDAA    M_ITOA_HUNDREDS
 
 ; Offset from ASCII '0' to convert each value to an ASCII char.
     ADDA    #'0
     STAA    1,x
     LDAA    #'.
     STAA    2,x
-    LDAA    M_PARSED_INT_TENS
+    LDAA    M_ITOA_TENS
     ADDA    #'0
     STAA    3,x
-    LDAA    M_PARSED_INT_DIGITS
+    LDAA    M_ITOA_DIGITS
     ADDA    #'0
     STAA    4,x
     JMP     _END_UI_EDIT_MODE
@@ -14708,7 +14708,7 @@ _PRINT_FIXED_FREQ:
 ; At this point, the copy destination ptr points to the end of the
 ; LCD buffer, after the final '=' char of the previously printed string.
     LDX     <M_MEMCPY_PTR_DEST
-    LDAA    M_PARSED_INT_THSNDS
+    LDAA    M_ITOA_THOUSANDS
 
 ; Offset the number value with ASCII '0' to convert to an ASCII value.
     ADDA    #'0
@@ -14722,7 +14722,7 @@ _PRINT_FIXED_FREQ:
     BSR     UI_EDIT_FREQ_PRINT_PERIOD
 
 _PRINT_FIXED_FREQ_HUNDREDS:
-    LDAA    M_PARSED_INT_HNDRDS
+    LDAA    M_ITOA_HUNDREDS
     BSR     UI_EDIT_FREQ_PRINT_DIGIT
     BMI     _PRINT_FIXED_FREQ_TENS
 
@@ -14732,7 +14732,7 @@ _PRINT_FIXED_FREQ_HUNDREDS:
     BSR     UI_EDIT_FREQ_PRINT_PERIOD
 
 _PRINT_FIXED_FREQ_TENS:
-    LDAA    M_PARSED_INT_TENS
+    LDAA    M_ITOA_TENS
     BSR     UI_EDIT_FREQ_PRINT_DIGIT
     BMI     _PRINT_FIXED_FREQ_DIGITS
 
@@ -14742,7 +14742,7 @@ _PRINT_FIXED_FREQ_TENS:
     BSR     UI_EDIT_FREQ_PRINT_PERIOD
 
 _PRINT_FIXED_FREQ_DIGITS:
-    LDAA    M_PARSED_INT_DIGITS
+    LDAA    M_ITOA_DIGITS
     BSR     UI_EDIT_FREQ_PRINT_DIGIT
     BMI     _PRINT_FIXED_FREQ_HZ
 
@@ -15828,12 +15828,12 @@ _LOAD_FN_PARAM_VALUE:
     CLRA
     JSR     CONVERT_INT_TO_STR
     LDX     <M_MEMCPY_PTR_DEST
-    LDAA    M_PARSED_INT_TENS
+    LDAA    M_ITOA_TENS
     ADDA    #'0
     STAA    0,x
     LDAA    #'.
     STAA    1,x
-    LDAA    M_PARSED_INT_DIGITS
+    LDAA    M_ITOA_DIGITS
     ADDA    #'0
     STAA    2,x
 
@@ -16466,7 +16466,7 @@ _PRINT_NAME_CHAR:
 ; ==============================================================================
 LCD_PRINT_NUMBER_TO_BUFFER:
 ; If the most significant digit of the number is not 0, branch.
-    LDAA    M_PARSED_INT_TENS
+    LDAA    M_ITOA_TENS
     BNE     _MOST_SIGNIFICANT_DIGIT_NON_ZERO
 
 ; Print a space to the buffer to take the place of the zero digit.
@@ -16482,7 +16482,7 @@ _MOST_SIGNIFICANT_DIGIT_NON_ZERO:
     INX
 
 _PRINT_SECOND_DIGIT:
-    LDAA    M_PARSED_INT_DIGITS
+    LDAA    M_ITOA_DIGITS
 
 ; Index the digit from ASCII '0', and store.
     ADDA    #'0
