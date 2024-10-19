@@ -369,7 +369,7 @@ M_TEST_MODE_BUTTON_COMBO_STATE:           equ  $97
 ; This variable seems to hold the source of the last front-panel input event,
 ; with the value incremented.
 ; This appears to also contain a null value of zero.
-M_LAST_FRONT_PANEL_INPUT_ALTERNATE:    equ  $98
+M_LAST_FRONT_PANEL_INPUT_ALTERNATE:       equ  $98
 
 ; This flag is set when the 'Edit/Char' button is held down during
 ; editing a patch name. It causes the front panel buttons to input
@@ -392,7 +392,10 @@ M_MIDI_ACTV_SENS_RX_CTR:                  equ  $9B
 M_KEY_FREQ:                               equ  $9D
 M_KEY_FREQ_LOW:                           equ  $9E
 
-M_KEY_EVENT_CURRENT:                      equ  $AA
+; The memory between 0x9F, and 0xB4 seems to be scratch space, used by
+; different subroutines for their own different purposes.
+
+M_MIDI_NOTE_EVENT_CURRENT:                equ  $AA
 
 M_ITOA_ORIGINAL_NUMBER:                   equ  $B4
 M_ITOA_POWERS_OF_TEN_PTR:                 equ  $B6
@@ -631,7 +634,7 @@ M_PATCH_PITCH_EG_VALUES_FINAL_LEVEL:      equ  $2167
 ; with bit 7 tracking whether it is active or not.
 ; This buffer is only used to track notes triggered by MIDI events.
 ; Notes triggered by keyboard key-presses are not stored here.
-; It's possible that this is a holdover from an earlier implementation.
+; This buffer does not feature in earlier versions of the DX7 firmware.
 ; Length: 16.
 M_MIDI_NOTE_EVENT_BUFFER:                 equ  $2168
 
@@ -2610,7 +2613,7 @@ _CLEAR_INTERNAL_RAM_LOOP:
     STAA    M_BRTH_CTRL_ANALOG_INPUT
     STAA    M_AFTERTOUCH_ANALOG_INPUT
     STAA    M_FOOT_CTRL_ANALOG_INPUT
-    JSR     VOICE_DEACTIVATE_ALL
+    JSR     MIDI_DEACTIVATE_ALL_VOICES
     JSR     MOD_PROCESS_INPUT_SOURCES
     JSR     PORTA_COMPUTE_RATE_VALUE
 
@@ -7403,7 +7406,7 @@ MIDI_VOICE_ADD:
     LDAA    #16
 
 ; This variable is the index into the key event array.
-    LDAB    <M_KEY_EVENT_CURRENT
+    LDAB    <M_MIDI_NOTE_EVENT_CURRENT
 
 _MIDI_VOICE_ADD_FIND_INACTIVE_VOICE_LOOP:
     LDX     #M_MIDI_NOTE_EVENT_BUFFER
@@ -7419,13 +7422,13 @@ _MIDI_VOICE_ADD_FIND_INACTIVE_VOICE_LOOP:
     RTS
 
 _MIDI_VOICE_ADD_FOUND_INACTIVE_VOICE:
-    STAB    <M_KEY_EVENT_CURRENT
+    STAB    <M_MIDI_NOTE_EVENT_CURRENT
 
 ; @TODO: Why does this loop twice?
 ; This code also appears in the DX7 SER7 ROM. The equivalent function
 ; in the SER7 ROM is located at 0xD186.
     LDAA    #16
-    LDAB    <M_KEY_EVENT_CURRENT
+    LDAB    <M_MIDI_NOTE_EVENT_CURRENT
 
 _MIDI_VOICE_ADD_FIND_INACTIVE_VOICE_LOOP_2:
     INCB
@@ -7443,17 +7446,17 @@ _MIDI_VOICE_ADD_FIND_INACTIVE_VOICE_LOOP_2:
 
 _MIDI_VOICE_ADD_SET_NEW_KEY_EVENT:
     LDX     #M_MIDI_NOTE_EVENT_BUFFER
-    LDAB    <M_KEY_EVENT_CURRENT
+    LDAB    <M_MIDI_NOTE_EVENT_CURRENT
     ABX
     LDAA    <M_NOTE_KEY
     ORAA    #MIDI_VOICE_EVENT_ACTIVE
     STAA    0,x
 
 ; Increment the current voice.
-    LDAB    <M_KEY_EVENT_CURRENT
+    LDAB    <M_MIDI_NOTE_EVENT_CURRENT
     INCB
     ANDB    #%1111                              ; Voice_Current % 16.
-    STAB    <M_KEY_EVENT_CURRENT
+    STAB    <M_MIDI_NOTE_EVENT_CURRENT
     JSR     VOICE_ADD
 
     RTS
@@ -7500,19 +7503,21 @@ _MIDI_VOICE_REMOVE_ACTIVE_VOICE_FOUND:
 
 
 ; ==============================================================================
-; VOICE_DEACTIVATE_ALL
+; MIDI_DEACTIVATE_ALL_VOICES
 ; ==============================================================================
 ; LOCATION: 0xD74C
 ;
 ; DESCRIPTION:
 ; Deactivates all active voices.
+; This subroutine uses the MIDI note event buffer to track which voices are
+; active. It is primarily used in MIDI functionality.
 ;
 ; ==============================================================================
-VOICE_DEACTIVATE_ALL:
+MIDI_DEACTIVATE_ALL_VOICES:
     CLRB
 
 _DEACTIVATE_VOICE_LOOP:
-    STAB    <M_KEY_EVENT_CURRENT
+    STAB    <M_MIDI_NOTE_EVENT_CURRENT
     LDX     #M_MIDI_NOTE_EVENT_BUFFER
     ABX
 
@@ -7522,21 +7527,20 @@ _DEACTIVATE_VOICE_LOOP:
     TIMX    #MIDI_VOICE_EVENT_ACTIVE, 0
     BEQ     _DEACTIVATE_VOICE_LOOP_INCREMENT
 
-    LDAB    0,x
-
 ; Load the note from the 'Key Event' buffer, and mask the 'active' bit in
 ; the entry to leave only the 'note' portion of the entry.
+    LDAB    0,x
     ANDB    #%1111111
     STAB    <M_NOTE_KEY
     BSR     MIDI_VOICE_REMOVE
 
 _DEACTIVATE_VOICE_LOOP_INCREMENT:               ; Restore iterator.
-    LDAB    <M_KEY_EVENT_CURRENT
+    LDAB    <M_MIDI_NOTE_EVENT_CURRENT
     INCB
     CMPB    #16
     BNE     _DEACTIVATE_VOICE_LOOP              ; If B < 16, loop.
 
-    CLR     M_KEY_EVENT_CURRENT
+    CLR     M_MIDI_NOTE_EVENT_CURRENT
     RTS
 
 
@@ -11110,7 +11114,7 @@ MIDI_ACTIVE_SENSING_STOP:
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
-    JSR     VOICE_DEACTIVATE_ALL
+    JSR     MIDI_DEACTIVATE_ALL_VOICES
     PULA
     STAA    <IO_PORT_2_DATA
     RTS
@@ -12163,7 +12167,7 @@ _HANDLER_SCI_HAS_BUFFER_OVERFLOWED:
     LDAA    #MIDI_ERROR_BUFFER_FULL
     STAA    <M_MIDI_BUFFER_ERROR_CODE
     BSR     MIDI_RESET_BUFFERS
-    JSR     VOICE_DEACTIVATE_ALL
+    JSR     MIDI_DEACTIVATE_ALL_VOICES
     RTI
 
 _HANDLER_SCI_SAVE_RX_PTR_AND_EXIT:
@@ -13375,7 +13379,7 @@ MIDI_RX_CC_126_MODE_MONO:
 
 
 _MIDI_RX_CC_MODE_CHANGE_RESET:
-    JSR     VOICE_DEACTIVATE_ALL
+    JSR     MIDI_DEACTIVATE_ALL_VOICES
     JSR     VOICE_RESET
 
 _MIDI_RX_CC_MODE_CONTINUE:
@@ -13512,7 +13516,7 @@ MIDI_RX_CC_123_ALL_NOTES_OFF:
     LDAA    <TIMER_CTRL_STATUS
     PSHA
     CLR     TIMER_CTRL_STATUS
-    JSR     VOICE_DEACTIVATE_ALL
+    JSR     MIDI_DEACTIVATE_ALL_VOICES
     PULA
     STAA    <TIMER_CTRL_STATUS
     BRA     MIDI_RX_CC_END
