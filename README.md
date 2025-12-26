@@ -18,7 +18,7 @@ The subroutine names are prefixed, to indicate the area of functionality.
 |--|--|
 |BTN|These subroutines contain code for handling the various front-panel button presses. These functions will typically be named by the button they handle the input of. Such as `BTN_EDIT`, or `BTN_FUNC`.|
 |CRT|These subroutines contain the code for working with the synth's cartridge interface |
-|DELAY|Various subroutines related to introducting an arbitrary delay in the software. These are used extensively when working with the peripheral hardware.|
+|DELAY|Various subroutines related to introducing an arbitrary delay in the software. These are used extensively when working with the peripheral hardware.|
 |HANDLER|These subroutines are the 'top-level' handlers for the 6303 CPU's built-in functionality, such as the *reset vector*, and the various timer-related vectors  |
 |INPUT|These functions concern the top-level handling of the synth's analog input. Such as input from the keyboard, modulation wheel, and external modulation controllers.|
 |LED|Subroutines for interfacing with the synth's LED indicator.|
@@ -93,7 +93,7 @@ If you have a better imagination than I do for what to do with the firmware, fee
 
 **Q: Are contributions welcome?**
 
-**A:** Absolutely! If you have any suggestions, corrections, or questions, please [get in touch](https://ajxs.me "get in touch")! Alteratively, feel free to fork the project, and make a pull request to the master branch.
+**A:** Absolutely! If you have any suggestions, corrections, or questions, please [get in touch](https://ajxs.me "get in touch")! Alternatively, feel free to fork the project, and make a pull request to the master branch.
 
 **Q: Why target the source to the dasm assembler?**
 
@@ -105,7 +105,7 @@ Initially this repository contained a build script which converted the disassemb
 
 ## Acknowledgements
 
-I would like to extend a sincere thank you to Jacques Mattheij for his contributions and insights, Ken Shirriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this inconic synthesiser.
+I would like to extend a sincere thank you to Jacques Mattheij for his contributions and insights, Ken Shirriff for his amazing research into the DX7's hardware, Rainer Buchty for providing invaluable advice on reverse-engineering, Acreil for generously lending his time to help me understand the synth's hardware, and Raph Levien, and the Dexed team for their amazing work emulating this iconic synthesiser.
 
 ## Outstanding Questions
 

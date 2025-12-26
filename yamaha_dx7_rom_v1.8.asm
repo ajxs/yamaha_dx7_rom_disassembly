@@ -9911,13 +9911,13 @@ PATCH_ACTIVATE_OPERATOR_KBD_SCALING_RATE:
 PATCH_ACTIVATE_OPERATOR_PITCH:
     JSR     PATCH_GET_PTR_TO_SELECTED_OP
     STX     <$AB
-    LDAB    17,x                                ; Load 'Osc Mode' into B.
+    LDAB    PATCH_OP_MODE,x
     BNE     _OSC_MODE_FIXED
 
 ; Use the serialised 'Op Freq Coarse' value (0-31) as an index into the
 ; coarse frequency lookup table.
 ; Store the resulting coarse freq value in 0xAD.
-    LDAB    18,x
+    LDAB    PATCH_OP_FREQ_COARSE,x
     ASLB
     LDX     #TABLE_OP_FREQ_COARSE
     ABX
@@ -9926,7 +9926,7 @@ PATCH_ACTIVATE_OPERATOR_PITCH:
 
 ; Parse the operator's fine frequency.
     LDX     <$AB
-    LDAB    19,x
+    LDAB    PATCH_OP_FREQ_FINE,x
     LDAA    #2
     MUL
 
@@ -9959,7 +9959,7 @@ PATCH_ACTIVATE_OPERATOR_PITCH:
 
 _OSC_MODE_FIXED:
     LDX     <$AB
-    LDAB    18,x
+    LDAB    PATCH_OP_FREQ_COARSE,x
     ANDB    #3
     ASLB
     LDX     #TABLE_OP_FREQ_FIXED
@@ -9969,7 +9969,7 @@ _OSC_MODE_FIXED:
 
 ; Scale the fine fixed frequency by multipying by 136.
     LDX     <$AB
-    LDAA    19,x
+    LDAA    PATCH_OP_FREQ_FINE,x
     LDAB    #136
     MUL
 
