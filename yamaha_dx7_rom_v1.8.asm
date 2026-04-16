@@ -1057,43 +1057,43 @@ TEST_MAIN_LOOP:
 ; ==============================================================================
 TEST_MAIN_FUNCTIONS_1:
     TST     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
-    BNE     _IS_LAST_BTN_NO
+    BNE     _TEST_IF_LAST_BTN_NO
 
     RTS
 
-_IS_LAST_BTN_NO:
+_TEST_IF_LAST_BTN_NO:
 ; If the last button was 'DOWN' decrement the test stage.
     LDAB    M_LAST_FRONT_PANEL_INPUT
     CMPB    #BUTTON_NO_DOWN
-    BNE     _IS_LAST_BTN_YES
+    BNE     _TEST_IF_LAST_BTN_YES
 
     JSR     TEST_STAGE_DECREMENT
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-_IS_LAST_BTN_YES:
+_TEST_IF_LAST_BTN_YES:
 ; If the last button was 'UP' increment the test stage.
     CMPB    #BUTTON_YES_UP
-    BNE     _IS_TEST_STG_8
+    BNE     _TEST_IF_TEST_STAGE_8
 
 _ADVANCE_STAGE:
     JSR     TEST_STAGE_INCREMENT
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-_IS_TEST_STG_8:
+_TEST_IF_TEST_STAGE_8:
     LDAB    M_TEST_STAGE
     CMPB    #7
-    BNE     _IS_TEST_STG_3
+    BNE     _TEST_IF_TEST_STAGE_3
 
 ; Test if front-panel button 1 was pressed.
 ; This variable is the front-panel button index + 1.
     LDAB    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CMPB    #(BUTTON_1 + 1)
-    BNE     _IS_BUTTON_17_PRESSED
+    BNE     _TEST_IF_BUTTON_17_PRESSED
 
     JSR     TEST_STAGE_8_CRT_EEPROM
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-_IS_BUTTON_17_PRESSED:
+_TEST_IF_BUTTON_17_PRESSED:
 ; Test if front-panel button 16 was pressed.
     CMPB    #(BUTTON_16 + 1)
     BNE     _END_TEST_MAIN_FUNCTIONS_1
@@ -1101,21 +1101,21 @@ _IS_BUTTON_17_PRESSED:
     JSR     TEST_STAGE_8_COPY_CRT_TO_RAM
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-_IS_TEST_STG_3:
+_TEST_IF_TEST_STAGE_3:
     CMPB    #2
-    BNE     _IS_TEST_STG_4
+    BNE     _TEST_IF_TEST_STAGE_4
 
     JSR     TEST_STAGE_3_SWITCHES
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-_IS_TEST_STG_4:
+_TEST_IF_TEST_STAGE_4:
     CMPB    #3
-    BNE     _IS_TEST_STG_5
+    BNE     _TEST_IF_TEST_STAGE_5
 
     JSR     TEST_STAGE_4_KBD
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-_IS_TEST_STG_5:
+_TEST_IF_TEST_STAGE_5:
     CMPB    #4
     BNE     _END_TEST_MAIN_FUNCTIONS_1
 
@@ -1144,39 +1144,39 @@ _END_TEST_MAIN_FUNCTIONS_1:
 ;
 ; DESCRIPTION:
 ; The second of the two main diagnostic test functions.
-; This subroutine initialises the currently selected diagnotic test function.
+; This subroutine initialises the currently selected diagnostic test function.
 ;
 ; ==============================================================================
 TEST_MAIN_FUNCTIONS_2:
     LDAA    M_TEST_STAGE
     CMPA    #1
-    BNE     _IS_TEST_STAGE_3_COMPLETE
+    BNE     _TEST_IF_TEST_STAGE_3_COMPLETE
 
     JSR     TEST_STAGE_2_LCD
     RTS
 
-_IS_TEST_STAGE_3_COMPLETE:
+_TEST_IF_TEST_STAGE_3_COMPLETE:
     CMPA    M_TEST_STAGE_3_STATUS
-    BNE     _IS_TEST_STAGE_6
+    BNE     _TEST_IF_TEST_STAGE_6
 
-    BRA     _IS_TEST_STAGE_3
+    BRA     _TEST_IF_TEST_STAGE_3_ACTIVE
 
-_IS_TEST_STAGE_6:
+_TEST_IF_TEST_STAGE_6:
     STAA    M_TEST_STAGE_3_STATUS
     CMPA    #5
-    BNE     _IS_TEST_STAGE_7
+    BNE     _TEST_IF_TEST_STAGE_7
 
     JSR     TEST_STAGE_6_CRT_READ
     RTS
 
-_IS_TEST_STAGE_7:
+_TEST_IF_TEST_STAGE_7:
     CMPA    #6
-    BNE     _IS_TEST_STAGE_3
+    BNE     _TEST_IF_TEST_STAGE_3_ACTIVE
 
     JSR     TEST_STAGE_7_CRT_WRITE
     RTS
 
-_IS_TEST_STAGE_3:
+_TEST_IF_TEST_STAGE_3_ACTIVE:
     CMPA    #2
     BNE     _END_TEST_MAIN_FUNCTIONS_2
 
@@ -1670,11 +1670,11 @@ EXPECTED_SWITCH_INPUT:                    equ $2580
 ; ==============================================================================
     LDAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CMPA    #40
-    BLS     _IS_TEST_ALREADY_COMPLETE
+    BLS     _TEST_IF_TEST_ALREADY_COMPLETE
 
     RTS
 
-_IS_TEST_ALREADY_COMPLETE:
+_TEST_IF_TEST_ALREADY_COMPLETE:
 ; This flag is reset in the clear test flags function.
     LDAA    EXPECTED_SWITCH_INPUT
     CMPA    #40
@@ -4172,7 +4172,7 @@ BTN_FN_MIDI:
     INC     M_EDIT_BTN_8_SUB_FN
     LDAA    M_EDIT_BTN_8_SUB_FN
     TST     M_MIDI_SYS_INFO_AVAIL
-    BEQ     _IS_SUB_FN_2
+    BEQ     _TEST_IF_SUB_FN_2
 
 ; Is the sub-function at its maximum?
     CMPA    #3
@@ -4182,7 +4182,7 @@ _RESET_SUB_FN:
     CLR     M_EDIT_BTN_8_SUB_FN
     BRA     SET_UI_TO_FN_MODE
 
-_IS_SUB_FN_2:
+_TEST_IF_SUB_FN_2:
 ; Advancing to the third 'function' is not available if 'SYS INFO AVAIL'
 ; is not enabled.
     CMPA    #2
@@ -4441,7 +4441,7 @@ _READ_OR_WRITE_CRT:
     BNE     _WRITE_SELECTED_CRT
 
     JSR     CRT_CHECK_FORMAT
-    BEQ     _IS_PATCH_MODIFIED_CRT
+    BEQ     _TEST_IF_PATCH_MODIFIED_CRT
 
     PULB
     STAB    <TIMER_CTRL_STATUS
@@ -4450,7 +4450,7 @@ _READ_OR_WRITE_CRT:
     STAB    <IO_PORT_2_DATA
     JMP     CRT_FORMAT_CONFLICT
 
-_IS_PATCH_MODIFIED_CRT:
+_TEST_IF_PATCH_MODIFIED_CRT:
 ; Check if the patch in the working buffer has been modified.
 ; If so, copy it into the compare buffer before loading the new patch.
     TST     M_PATCH_CURRENT_MODIFIED_FLAG
@@ -4746,27 +4746,27 @@ _STORE_INCREMENT:
 BTN_SLIDER:
     LDAA    M_MEM_SELECT_UI_MODE
     CMPA    #UI_MODE_CRT_LOAD_SAVE
-    BNE     _IS_MODE_MEM_PROTECT
+    BNE     _TEST_IF_MODE_MEM_PROTECT
 
     JMP     BTN_YES_NO_CRT_READ_WRITE
 
-_IS_MODE_MEM_PROTECT:
+_TEST_IF_MODE_MEM_PROTECT:
     CMPA    #UI_MODE_SET_MEM_PROTECT
-    BNE     _IS_SYNTH_IN_PLAY_MODE
+    BNE     _TEST_IF_SYNTH_IN_PLAY_MODE
 
     JMP     BTN_YES_NO_SET_MEM_PROTECT_STATUS
 
-_IS_SYNTH_IN_PLAY_MODE:
+_TEST_IF_SYNTH_IN_PLAY_MODE:
     LDAA    M_INPUT_MODE
-    BNE     _IS_SYNTH_IN_EDIT_MODE
+    BNE     _TEST_IF_SYNTH_IN_EDIT_MODE
 
 ; If the synth is in 'Play Mode', treat the Up/Down press as though it is
 ; in 'Function Mode'.
     BRA     _FUNCTION_MODE
 
-_IS_SYNTH_IN_EDIT_MODE:
+_TEST_IF_SYNTH_IN_EDIT_MODE:
     CMPA    #INPUT_MODE_EDIT
-    BEQ     _IS_NAME_EDIT_MODE
+    BEQ     _TEST_IF_NAME_EDIT_MODE_ACTIVE
 
 ; Is the synth in 'Function' mode?
     CMPA    #INPUT_MODE_FUNCTION
@@ -4777,7 +4777,7 @@ _IS_SYNTH_IN_EDIT_MODE:
 _FUNCTION_MODE:
     JMP     _FUNC_MODE_IS_BUTTON_ABOVE_16
 
-_IS_NAME_EDIT_MODE:
+_TEST_IF_NAME_EDIT_MODE_ACTIVE:
 ; If the synth is in 'Name Edit' mode, Up/Down button input will be
 ; captured, and handled by the name editing handler function, and not
 ; processed further here.
@@ -4795,7 +4795,7 @@ _END_BTN_YES_NO:
 _EDIT_MODE:
     LDAB    M_CURRENT_PARAM_EDIT_MODE
     CMPB    #27
-    BHI     _IS_PARAM_20                       ; Branch if B > 27.
+    BHI     _TEST_IF_PARAM_20                       ; Branch if B > 27.
 
 ; The following section deals with incrementing/decrementing the actual
 ; data values in patch memory. This is facilitated by loading either the
@@ -4819,7 +4819,7 @@ _EDIT_MODE:
     BEQ     _SAVE_B_GET_OP_INDEX
 
     CMPB    #12
-    BLS     _IS_PARAM_20
+    BLS     _TEST_IF_PARAM_20
 
 _SAVE_B_GET_OP_INDEX:
     PSHB
@@ -4858,34 +4858,34 @@ _EDIT_VALUE:
     STAA    <IO_PORT_2_DATA
     RTS
 
-_IS_PARAM_20:
+_TEST_IF_PARAM_20:
     LDAB    <M_EDIT_EG_RATE_LVL_SUB_FN
     LDAA    M_CURRENT_PARAM_EDIT_MODE
     CMPA    #20
-    BNE     _IS_PARAM_21
+    BNE     _TEST_IF_PARAM_21
 
     PSHB
     BRA     _LOAD_OFFSET_OPERATOR_PTR
 
-_IS_PARAM_21:
+_TEST_IF_PARAM_21:
     CMPA    #21
-    BNE     _IS_PARAM_28
+    BNE     _TEST_IF_PARAM_28
 
     ADDB    #4
     PSHB
     BRA     _LOAD_OFFSET_OPERATOR_PTR
 
-_IS_PARAM_28:
+_TEST_IF_PARAM_28:
     CMPA    #28
-    BNE     _IS_PARAM_29
+    BNE     _TEST_IF_PARAM_29
 
 ; Pitch EG Rate.
     ADDB    #126
     BRA     _LOAD_OFFSET_PATCH_PTR
 
-_IS_PARAM_29:
+_TEST_IF_PARAM_29:
     CMPA    #29
-    BNE     _IS_PARAM_23
+    BNE     _TEST_IF_PARAM_23
 
 ; Pitch EG Level.
     ADDB    #130
@@ -4894,13 +4894,13 @@ _LOAD_OFFSET_PATCH_PTR:
     LDX     #M_PATCH_BUFFER_EDIT
     BRA     _EDIT_VALUE
 
-_IS_PARAM_23:
+_TEST_IF_PARAM_23:
 ; The keyboard scaling 'toggle' variable is either 0x0, or 0xFF.
 ; This value will be incremented to then test against zero, to determine
 ; which parameter is being edited.
     LDAB    <M_EDIT_KBD_SCALE_TOGGLE
     CMPA    #23
-    BNE     _IS_PARAM_24
+    BNE     _TEST_IF_PARAM_24
 
     INCB
     BEQ     _EDIT_PARAM_KBD_SCALE_RHT_CURVE
@@ -4915,9 +4915,9 @@ _EDIT_PARAM_KBD_SCALE_RHT_CURVE:
     PSHB
     JMP     _LOAD_OFFSET_OPERATOR_PTR
 
-_IS_PARAM_24:
+_TEST_IF_PARAM_24:
     CMPA    #24
-    BNE     _IS_PARAM_OSC_MODE_SYNC
+    BNE     _TEST_IF_PARAM_IS_OSC_MODE_SYNC
 
     INCB
     BEQ     _EDIT_PARAM_KBD_SCALE_RHT_DEPTH
@@ -4932,7 +4932,7 @@ _EDIT_PARAM_KBD_SCALE_RHT_DEPTH:
     PSHB
     JMP     _LOAD_OFFSET_OPERATOR_PTR
 
-_IS_PARAM_OSC_MODE_SYNC:
+_TEST_IF_PARAM_IS_OSC_MODE_SYNC:
     CMPA    #16
     BEQ     _EDIT_PARAM_OSC_MODE_SYNC
 
@@ -5234,7 +5234,7 @@ _FUNC_MODE_IS_BUTTON_ABOVE_16:
 
 ; Button 16, or less.
     CMPB    #BUTTON_8
-    BNE     _IS_BTN_LESS_THAN_8
+    BNE     _TEST_IF_BTN_LESS_THAN_8
 
 ; Handle button 8.
 ; If there is an active voice event (Key Up/Key Down), then don't
@@ -5244,7 +5244,7 @@ _FUNC_MODE_IS_BUTTON_ABOVE_16:
 
     JMP     BTN_YES_NO_UI_FUNCTION_MODE_BUTTON_8
 
-_IS_BTN_LESS_THAN_8:
+_TEST_IF_BTN_LESS_THAN_8:
     BCS     _BTN_LESS_THAN_8
 
 ; Is this button 12?
@@ -5434,7 +5434,7 @@ _NON_RANGE_VALUE:
     LDAA    <M_INPUT_EVENT_COMES_FROM_SLIDER
     BNE     _FN_16_TO_32_SLIDER_EVENT
 
-_IS_BIAS_BUTTON:
+_TEST_IF_BIAS_BUTTON:
 ; If the button pressed is the fourth in the grouping (EG Bias)
 ; then increment ACCB to create a usable bitmask by causing value 3
 ; to occupy bit 3.
@@ -5470,7 +5470,7 @@ _FN_16_TO_32_SLIDER_EVENT:
 
 _STORE_SLIDER_NO_YES_FLAG:
     STAA    <M_UP_DOWN_INCREMENT
-    BRA     _IS_BIAS_BUTTON
+    BRA     _TEST_IF_BIAS_BUTTON
 
 _NON_RANGE_BTN_YES:
     LDAA    #1
@@ -5551,14 +5551,14 @@ _CLEAR_PITCH_BUFFERS_LOOP:
 ; ==============================================================================
 BTN_YES_NO_UI_FUNCTION_MODE_BUTTON_8:
     LDAA    M_EDIT_BTN_8_SUB_FN
-    BNE     _IS_BUTTON_8_SUB_FN_1
+    BNE     _TEST_IF_BUTTON_8_SUB_FN_1
 
 ; Sub-function 0: MIDI Receive channel.
     JSR     VOICE_RESET
     LDX     #M_MIDI_RX_CH
     JMP     BTN_YES_NO_INC_DEC
 
-_IS_BUTTON_8_SUB_FN_1:
+_TEST_IF_BUTTON_8_SUB_FN_1:
     CMPA    #1
     BNE     _BUTTON_8_SUB_FN_2
 
@@ -5587,11 +5587,11 @@ _WAS_SLIDER_INPUT_UP_OR_DOWN:
 
 _BUTTON_8_SUB_FN_2:
     TST     M_INPUT_EVENT_COMES_FROM_SLIDER
-    BEQ     _IS_YES_PRESSED
+    BEQ     _TEST_IF_YES_PRESSED
 
     RTS
 
-_IS_YES_PRESSED:
+_TEST_IF_YES_PRESSED:
     TST     M_UP_DOWN_INCREMENT
     BPL     _MIDI_TRANSMIT
 
@@ -5619,26 +5619,26 @@ _END_BTN_YES_NO_UI_FUNCTION_MODE_BUTTON_8:
 ; ==============================================================================
 BTN_YES_NO_FN_9_TO_11:
     TST     M_INPUT_MODE
-    BNE     _IS_SLIDER_INPUT
+    BNE     _TEST_IF_SLIDER_INPUT
 
 ; Exit if the synth is in 'Play' mode.
     RTS
 
-_IS_SLIDER_INPUT:
+_TEST_IF_SLIDER_INPUT:
 ; Exit if this event came from the slider.
     TST     M_INPUT_EVENT_COMES_FROM_SLIDER
-    BEQ     _IS_BUTTON_YES_OR_NO
+    BEQ     _TEST_IF_BUTTON_YES_OR_NO
 
     RTS
 
-_IS_BUTTON_YES_OR_NO:
+_TEST_IF_BUTTON_YES_OR_NO:
     TST     M_UP_DOWN_INCREMENT
-    BPL     _IS_CONFIRM_FLAG_SET
+    BPL     _TEST_IF_CONFIRM_FLAG_SET
 
 ; Handle a 'No' button press.
     JMP     INPUT_RESET_TO_FN_MODE
 
-_IS_CONFIRM_FLAG_SET:
+_TEST_IF_CONFIRM_FLAG_SET:
 ; Test if the 'Confirm' flag in the 'Load/Save Flags' register is set.
     TST     M_CRT_SAVE_LOAD_FLAGS
     BNE     _CONFIRM_FLAG_SET
@@ -5658,7 +5658,7 @@ MENU_PRINT_LINE_2:
 _CONFIRM_FLAG_SET:
     LDAB    M_CURRENT_PARAM_FUNCTION_MODE
     SUBB    #8
-    BNE     _IS_BTN_10
+    BNE     _TEST_IF_BTN_10
 
 ; Button 9 'Recall'.
 ; Copy the 'Recall Buffer' into the 'Edit Buffer', and restore the
@@ -5683,9 +5683,9 @@ _CONFIRM_FLAG_SET:
     CLR     TIMER_CTRL_STATUS
     BRA     _LOAD_PATCH_TO_EGS
 
-_IS_BTN_10:
+_TEST_IF_BTN_10:
     CMPB    #1
-    BNE     _IS_BTN_11
+    BNE     _TEST_IF_BTN_11
 
 ; Button 10 'Voice Init'.
     LDAA    <IO_PORT_2_DATA
@@ -5714,7 +5714,7 @@ _LOAD_PATCH_TO_EGS:
     STAA    M_LAST_PRESSED_BTN
     JMP     RESTORE_IRQ_AND_EXIT
 
-_IS_BTN_11:
+_TEST_IF_BTN_11:
     CMPB    #2
     BEQ     CRT_FORMAT
 
@@ -7569,7 +7569,7 @@ JUMP_TO_RELATIVE_OFFSET:
 ; Pull the return address from the stack into IX.
     PULX
 
-_IS_END_OF_JUMP_TABLE:
+_TEST_IF_END_OF_JUMP_TABLE:
 ; If the current jump table entry number is '0', the end of the jump table has
 ; been reached, so exit.
     TST     1,x
@@ -7582,7 +7582,7 @@ _IS_END_OF_JUMP_TABLE:
 
     INX
     INX
-    BRA     _IS_END_OF_JUMP_TABLE
+    BRA     _TEST_IF_END_OF_JUMP_TABLE
 
 _END_JUMP_TO_RELATIVE_OFFSET:
 ; Load the relative offset in the current entry, add this to the return
@@ -9121,7 +9121,7 @@ _COMPUTE_SCALING_CURVE_LOOP_START:
 _GET_LEFT_CURVE_POLARITY:
     LDAB    <K_KBD_SCALING_POLARITY
     ASLB
-    BRA     _IS_CURVE_POSITIVE
+    BRA     _TEST_IF_CURVE_POSITIVE
 
 _SET_KEYBOARD_SCALE_CURVE_RIGHT:
     LDX     <K_CURVE_TABLE_RIGHT_PTR
@@ -9141,7 +9141,7 @@ _SET_KEYBOARD_SCALE_CURVE_RIGHT:
 _GET_RIGHT_CURVE_POLARITY:
     LDAB    <K_KBD_SCALING_POLARITY
 
-_IS_CURVE_POSITIVE:
+_TEST_IF_CURVE_POSITIVE:
     BPL     _CURVE_IS_NEGATIVE
 
 ; Curve is positive.
@@ -10809,12 +10809,12 @@ _STORE_PITCH_BEND_STEP:
 
 _SETUP_PITCH_BEND_STEP_LOOP:
     DEC     M_PITCH_BEND_STEP_VALUE
-    BEQ     _IS_PITCH_BEND_POSITIVE
+    BEQ     _TEST_IF_PITCH_BEND_POSITIVE
 
     ADDD    0,x
     BRA     _SETUP_PITCH_BEND_STEP_LOOP
 
-_IS_PITCH_BEND_POSITIVE:
+_TEST_IF_PITCH_BEND_POSITIVE:
     TST     M_PITCH_BEND_INPUT_SIGNED
     BPL     _STORE_PITCH_BEND_VALUE
 
@@ -11482,7 +11482,7 @@ _VOICE_PROCESS_EG_LOOP:
 ; process the pitch EG past the sustain phase.
     LDAA    0,x
     CMPA    #3
-    BNE     _IS_ENV_STEP_5
+    BNE     _TEST_IF_ENV_STEP_5
 
     JMP     _INCREMENT_POINTERS
 
@@ -11491,7 +11491,7 @@ _VOICE_PROCESS_EG_LOOP:
 ; This check ensures that if the voice has reached step '5' (the end), it
 ; will not be processed further.
 
-_IS_ENV_STEP_5:
+_TEST_IF_ENV_STEP_5:
     CMPA    #5
     BNE     _PROCESS_EG_STAGE
 
@@ -11800,14 +11800,14 @@ _GET_LFO_PITCH_MOD_AMOUNT:
 
 ; LFO wave amplitude is positive?
     MUL
-    BRA     _IS_FINAL_LFO_AMP_NEGATIVE
+    BRA     _TEST_IF_FINAL_LFO_AMP_NEGATIVE
 
 _LFO_WAVE_NEGATIVE:
     NEGA
     MUL
     NEGA
 
-_IS_FINAL_LFO_AMP_NEGATIVE:
+_TEST_IF_FINAL_LFO_AMP_NEGATIVE:
 ; Pull the total modulation factor computed earlier, and multiply this by
 ; the quantised LFO amplitude.
     PULB
@@ -11932,15 +11932,15 @@ _STORE_LFO_DELAY_COUNTER:
 ; the highest bit of the flag variable.
     SEC
     ROR     M_LFO_SAMPLE_HOLD_RESET_FLAG
-    BRA     _IS_LFO_WAVE_0
+    BRA     _TEST_IF_LFO_WAVE_0
 
 _CLEAR_SH_FLAG:
     CLR     M_LFO_SAMPLE_HOLD_RESET_FLAG
 
-_IS_LFO_WAVE_0:
+_TEST_IF_LFO_WAVE_0:
     STD     <M_LFO_PHASE_ACCUMULATOR
     LDAA    M_LFO_WAVEFORM
-    BNE     _IS_LFO_WAVE_4
+    BNE     _TEST_IF_LFO_WAVE_4
 
 ; LFO wave is triangle.
 ; For the Triangle LFO The two-byte LFO phase accumulator is shifted to the
@@ -11963,9 +11963,9 @@ _LFO_TRIANGLE_STORE:
     ADDA    #128
     BRA     _STORE_AND_EXIT
 
-_IS_LFO_WAVE_4:
+_TEST_IF_LFO_WAVE_4:
     CMPA    #LFO_WAVE_SINE
-    BNE     _IS_LFO_WAVE_1
+    BNE     _TEST_IF_LFO_WAVE_1
 
 ; LFO wave is sine.
 ; The following sequence computes the index into the Sine LFO LUT.
@@ -12000,9 +12000,9 @@ _LFO_SINE_STORE:
     TBA
     BRA     _STORE_AND_EXIT
 
-_IS_LFO_WAVE_1:
+_TEST_IF_LFO_WAVE_1:
     CMPA    #LFO_WAVE_SAW_DOWN
-    BNE     _IS_LFO_WAVE_2
+    BNE     _TEST_IF_LFO_WAVE_2
 
 ; LFO wave is saw down.
 ; If the LFO wave is 'Saw Down' invert the phase counter register to achieve
@@ -12011,9 +12011,9 @@ _IS_LFO_WAVE_1:
     COMA
     BRA     _STORE_AND_EXIT
 
-_IS_LFO_WAVE_2:
+_TEST_IF_LFO_WAVE_2:
     CMPA    #LFO_WAVE_SAW_UP
-    BNE     _IS_LFO_WAVE_3
+    BNE     _TEST_IF_LFO_WAVE_3
 
 ; LFO wave is saw up.
 ; If the LFO wave is 'Saw Up' the most-significant byte of the LFO phase
@@ -12021,7 +12021,7 @@ _IS_LFO_WAVE_2:
     LDAA    <M_LFO_PHASE_ACCUMULATOR
     BRA     _STORE_AND_EXIT
 
-_IS_LFO_WAVE_3:
+_TEST_IF_LFO_WAVE_3:
     CMPA    #LFO_WAVE_SQUARE
     BNE     _LFO_S_H
 
@@ -13053,11 +13053,11 @@ _PROCESS_DATA_BYTE:
 
 ; Is this the start of a SYSEX message?
     CMPB    #MIDI_STATUS_SYSEX_START
-    BNE     _IS_DATA_RX_CHANNEL_CORRECT
+    BNE     _TEST_IF_DATA_RX_CHANNEL_CORRECT
 
     JMP     _SYSEX_DATA_COUNT_CHECK
 
-_IS_DATA_RX_CHANNEL_CORRECT:
+_TEST_IF_DATA_RX_CHANNEL_CORRECT:
 ; Check if this MIDI message is on the same channel as the DX7.
 ; Use XOR to check whether this byte matches the current MIDI RX channel.
 ; If the result is zero, the channel matches. If not, this message is
@@ -13073,7 +13073,7 @@ _IS_DATA_RX_CHANNEL_CORRECT:
     LDAB    <M_MIDI_STATUS_BYTE
     ANDB    #%11110000
     CMPB    #MIDI_STATUS_NOTE_OFF
-    BNE     _IS_NOTE_ON_MESSAGE
+    BNE     _TEST_IF_NOTE_ON_MESSAGE
 
 ; Check if another data byte for this message has previously been parsed.
 ; The device is expecting a status, and two data bytes.
@@ -13114,10 +13114,10 @@ _ACTIVE_SENSING:
     STD     <M_MIDI_ACTV_SENS_RX_CTR
     RTS
 
-_IS_NOTE_ON_MESSAGE:
+_TEST_IF_NOTE_ON_MESSAGE:
 ; Is this data part of a 'Note On' MIDI message?
     CMPB    #MIDI_STATUS_NOTE_ON
-    BNE     _IS_CONTROL_CHANGE_MESSAGE
+    BNE     _TEST_IF_CONTROL_CHANGE_MESSAGE
 
 ; Check whether we have both the status and the two data bytes that make
 ; up a  MIDI 'Note On' message.
@@ -13167,12 +13167,12 @@ _CLEAR_AND_REPEAT:
 
     JMP     MIDI_PROCESS_RECEIVED_DATA
 
-_IS_CONTROL_CHANGE_MESSAGE:
+_TEST_IF_CONTROL_CHANGE_MESSAGE:
 ; Is this data part of a 'Control Change' MIDI message?
     CMPB    #MIDI_STATUS_CONTROL_CHANGE
     BEQ     _CONTROL_CHANGE_MESSAGE
 
-    JMP     _IS_PROGRAM_CHANGE_MESSAGE
+    JMP     _TEST_IF_PROGRAM_CHANGE_MESSAGE
 
 _CONTROL_CHANGE_MESSAGE:
 ; Check whether we have both the status and the two data bytes that make up
@@ -13563,10 +13563,10 @@ MIDI_LOAD_VOLUME:
 TABLE_MIDI_VOLUME:
     DC.B 0, 4, 2, 6, 1, 5, 3, 7
 
-_IS_PROGRAM_CHANGE_MESSAGE:
+_TEST_IF_PROGRAM_CHANGE_MESSAGE:
 ; Is this byte part of a 'Program Change' message?
     CMPB    #MIDI_STATUS_PROGRAM_CHANGE
-    BNE     _IS_PITCH_BEND_MESSAGE
+    BNE     _TEST_IF_PITCH_BEND_MESSAGE
 
 ; Check whether the DX7 can accept 'Program Change' messages.
     TST     M_INPUT_MODE
@@ -13626,10 +13626,10 @@ _MIDI_PROGRAM_CHANGE_SET_PATCH_NUMBER:
 MIDI_PROGRAM_CHANGE_END:
     RTS
 
-_IS_PITCH_BEND_MESSAGE:
+_TEST_IF_PITCH_BEND_MESSAGE:
 ; Is this part of a 'Pitch Bend' MIDI message?
     CMPB    #MIDI_STATUS_PITCH_BEND
-    BNE     _IS_AFTERTOUCH_MESSAGE
+    BNE     _TEST_IF_AFTERTOUCH_MESSAGE
 
 ; Process a 'Pitch Bend' MIDI message.
     TST     M_MIDI_PROCESSED_DATA_COUNT
@@ -13645,7 +13645,7 @@ _IS_PITCH_BEND_MESSAGE:
     JSR     PITCH_BEND_PARSE
     JMP     MIDI_RX_CC_END
 
-_IS_AFTERTOUCH_MESSAGE:
+_TEST_IF_AFTERTOUCH_MESSAGE:
 ; Is this part of an 'Aftertouch' MIDI message?
     CMPB    #MIDI_STATUS_AFTERTOUCH
     BNE     _UNKNOWN_MIDI_STATUS
@@ -13669,7 +13669,7 @@ _SYSEX_DATA_COUNT_CHECK:
 ; Check how many bytes of SYSEX data have been received so far.
 ; This is used to store the various header data components.
     TST     M_MIDI_PROCESSED_DATA_COUNT
-    BNE     _IS_MSG_COUNT_1
+    BNE     _TEST_IF_MSG_COUNT_1
 
 ; If we've received a MIDI SYSEX header, and the next byte is not the correct
 ; identifier for the DX7, exit.
@@ -13693,11 +13693,11 @@ _SYSEX_FORCE_END:
     STAA    <M_MIDI_STATUS_BYTE
     RTS
 
-_IS_MSG_COUNT_1:
+_TEST_IF_MSG_COUNT_1:
 ; Is there one data byte already processed?
     LDAB    <M_MIDI_PROCESSED_DATA_COUNT
     CMPB    #1
-    BNE     _IS_MSG_COUNT_2
+    BNE     _TEST_IF_MSG_COUNT_2
 
 ; Is this the correct MIDI RX channel?
     PSHA
@@ -13731,10 +13731,10 @@ _SET_SUBSTATUS_AND_EXIT:
     INC     M_MIDI_PROCESSED_DATA_COUNT
     RTS
 
-_IS_MSG_COUNT_2:
+_TEST_IF_MSG_COUNT_2:
 ; Are there two data byte already processed?
     CMPB    #2
-    BNE     _IS_MSG_COUNT_3
+    BNE     _TEST_IF_MSG_COUNT_3
 
 ; Check the SYSEX 'Substatus' to determine whether this is a parameter
 ; change message, or a voice data transfer.
@@ -13752,7 +13752,7 @@ _IS_MSG_COUNT_2:
     STAA    <M_MIDI_INCOMING_DATA
     LSRA
     LSRA
-    BEQ     _IS_SYSEX_PARAM_VOICE
+    BEQ     _TEST_IF_SYSEX_PARAM_VOICE
 
 ; Is this a function parameter message?
     CMPA    #2
@@ -13788,14 +13788,14 @@ _RESET_AND_EXIT_2:
     CLR     M_MIDI_PROCESSED_DATA_COUNT
     BRA     _SYSEX_FORCE_END
 
-_IS_SYSEX_PARAM_VOICE:
+_TEST_IF_SYSEX_PARAM_VOICE:
     INCA
     BRA     _SYSEX_PARAM_STORE
 
-_IS_MSG_COUNT_3:
+_TEST_IF_MSG_COUNT_3:
 ; Are there three data byte already processed?
     CMPB    #3
-    BNE     _IS_MSG_COUNT_4
+    BNE     _TEST_IF_MSG_COUNT_4
 
 ; Check whether this is a SYSEX parameter message.
     LDAB    <M_MIDI_SYSEX_PARAM_GRP
@@ -13830,32 +13830,32 @@ _GET_UPPER_SYSEX_PARAM_NUM:
     STAB    <M_MIDI_INCOMING_DATA
     BRA     _INCREMENT_AND_EXIT
 
-_IS_MSG_COUNT_4:
+_TEST_IF_MSG_COUNT_4:
 ; Are there four data byte already processed?
     CMPB    #4
-    BNE     _IS_MSG_COUNT_5
+    BNE     _TEST_IF_MSG_COUNT_5
 
 ; Check if this is a SYSEX parameter message, or part of a data transfer.
     LDAB    <M_MIDI_SYSEX_PARAM_GRP
-    BEQ     _IS_SYSEX_FMT_PATCH
+    BEQ     _TEST_IF_SYSEX_FMT_PATCH
 
     CMPB    #MIDI_SYSEX_PARAM_GRP_VOICE
     BEQ     _SYSEX_VOICE_DATA
 
     CMPB    #MIDI_SYSEX_PARAM_GRP_FUNCTION
-    BEQ     _IS_SYSEX_FUNCTION_DATA
+    BEQ     _TEST_IF_SYSEX_FUNCTION_DATA
 
     BRA     _RESET_AND_EXIT
 
-_IS_SYSEX_FMT_PATCH:
+_TEST_IF_SYSEX_FMT_PATCH:
     LDAB    M_MIDI_SYSEX_FORMAT
-    BEQ     _IS_INT_MEM_PROTECTED
+    BEQ     _TEST_IF_INT_MEM_PROTECTED
 
 ; Does the SysEx format indicate this is performance data?
     CMPB    #MIDI_SYSEX_FMT_PERF
     BEQ     _SYSEX_RX_START
 
-_IS_INT_MEM_PROTECTED:
+_TEST_IF_INT_MEM_PROTECTED:
 ; Check for INT memory protection prior to receiving single/bulk voice dump.
     TIMD    #MEM_PROTECT_INT, M_MEM_PROTECT_FLAGS
     BNE     _INT_MEM_PROTECTED
@@ -13873,13 +13873,13 @@ _SYSEX_RX_START:
     STD     <M_MIDI_SYSEX_RX_COUNT
     RTS
 
-_IS_SYSEX_FUNCTION_DATA:
+_TEST_IF_SYSEX_FUNCTION_DATA:
 ; If the function group is set to 2 (Function Parameter), and the parameter
 ; is less-than or equal to 42, this means that a switch event is being
 ; transmitted.
     LDAB    <M_MIDI_INCOMING_DATA
     CMPB    #42
-    BCS     _IS_SYSEX_PANEL_MESSAGE               ; If B <= 42, branch.
+    BCS     _TEST_IF_SYSEX_PANEL_MESSAGE               ; If B <= 42, branch.
 
     BRA     _SYSEX_FUNCTION_DATA
 
@@ -13891,7 +13891,7 @@ _INT_MEM_PROTECTED:
 _SYSEX_NOT_ENABLED:
     JMP     _SYSEX_FORCE_END
 
-_IS_MSG_COUNT_5:
+_TEST_IF_MSG_COUNT_5:
 ; Are there five data byte already processed?
     CMPB    #5
     BNE     _RESET_AND_EXIT
@@ -13900,7 +13900,7 @@ _IS_MSG_COUNT_5:
 ; bulk voice data transfer, or a transfer of performance data.
     LDAB    M_MIDI_SYSEX_FORMAT
     CMPB    #MIDI_SYSEX_FMT_PERF
-    BNE     _IS_SYSEX_BULK_DATA
+    BNE     _TEST_IF_SYSEX_BULK_DATA
 
     JMP     _SYSEX_PERF_RECEIVE
 
@@ -13941,7 +13941,7 @@ _END_MIDI_PROCESS_RECEIVED_DATA:
 
     RTS
 
-_IS_SYSEX_PANEL_MESSAGE:
+_TEST_IF_SYSEX_PANEL_MESSAGE:
 ; Any value under 42 indicates the transfer of a panel control event.
 ; At this point, ACCA still contains the incoming MIDI byte, 0xE1 contains
 ; the PREVIOUS byte.
@@ -13985,7 +13985,7 @@ _SYSEX_FUNCTION_DATA:
 _SYSEX_ENABLE_IRQ_AND_EXIT:
     BRA     _ENABLE_IRQ_AND_EXIT
 
-_IS_SYSEX_BULK_DATA:
+_TEST_IF_SYSEX_BULK_DATA:
 ; Check whether this SYSEX message is a bulk voice data transfer.
     TST     M_MIDI_SYSEX_FORMAT
     BNE     _SYSEX_BULK_RECEIVE
@@ -14505,15 +14505,15 @@ _BTN_GT_EQ_6:
 ; @TODO: Under what circumstances does this occur?
 ; I'm not entirely sure under what circumstances this value will be '46'.
     CMPA    #46
-    BNE     _IS_BUTTON_17
+    BNE     _TEST_IF_BUTTON_17
 
 ; Reset the last pressed button.
     LDAA    M_CURRENT_PARAM_EDIT_MODE
     STAA    M_LAST_PRESSED_BTN
 
-_IS_BUTTON_17:
+_TEST_IF_BUTTON_17:
     CMPA    #BUTTON_17
-    BNE     _IS_BUTTON_OP_SELECT
+    BNE     _TEST_IF_BUTTON_OP_SELECT
 
 ; Edit oscillator mode sync.
     LDAA    <M_EDIT_OSC_MODE_SYNC_FLAG
@@ -14532,18 +14532,18 @@ _STORE_EDIT_PARAM_STR_INDEX:
     STAA    M_EDIT_PARAM_STR_INDEX
     JMP     _PRINT_EDIT_INFO
 
-_IS_BUTTON_OP_SELECT:
+_TEST_IF_BUTTON_OP_SELECT:
 ; If the last pressed button was the 'Operator Select' button, send the
 ; SYSEX message corresponding to enabling/disabling an operator, and reset
 ; the last-pressed button.
     CMPA    #BUTTON_OP_SELECT
-    BNE     _IS_BUTTON_7
+    BNE     _TEST_IF_BUTTON_7
 
     JMP     MIDI_TX_SYSEX_OPERATOR_ON_OFF
 
-_IS_BUTTON_7:
+_TEST_IF_BUTTON_7:
     CMPA    #BUTTON_7
-    BNE     _IS_BUTTON_18
+    BNE     _TEST_IF_BUTTON_18
 
 ; Print the algorithm select UI.
     JSR     UI_PRINT_ALG_INFO
@@ -14553,14 +14553,14 @@ _IS_BUTTON_7:
     JSR     MIDI_TX_SYSEX_PARAM_CHG
     JMP     _END_UI_EDIT_MODE
 
-_IS_BUTTON_18:
+_TEST_IF_BUTTON_18:
     CMPA    #BUTTON_18
     BEQ     _EDIT_FREQUENCY
 
 ; Is button 19?
     CMPA    #BUTTON_19
     BEQ     _EDIT_FREQUENCY
-    JMP     _IS_BUTTON_20
+    JMP     _TEST_IF_BUTTON_20
 
 _EDIT_FREQUENCY:
     JSR     UI_PRINT_ALG_INFO
@@ -14920,9 +14920,9 @@ TABLE_FREQ_FIXED_FINE_VALUES:
     DC.W $254E
     DC.W $262C
 
-_IS_BUTTON_20:
+_TEST_IF_BUTTON_20:
     CMPA    #BUTTON_20
-    BNE     _IS_BUTTON_21
+    BNE     _TEST_IF_BUTTON_21
 
 _PRINT_OSC_DETUNE:
     JSR     UI_PRINT_ALG_INFO
@@ -14982,7 +14982,7 @@ MIDI_TX_SYSEX_OPERATOR_PARAM_RELATIVE:
     RTS
 
 
-_IS_BUTTON_21:
+_TEST_IF_BUTTON_21:
 ; The following branches check the last button pressed to determine which
 ; EG parameter is being edited.
     CLRB
@@ -14999,7 +14999,7 @@ _IS_BUTTON_21:
 
     INCB
     CMPA    #BUTTON_30
-    BNE     _IS_BUTTON_25
+    BNE     _TEST_IF_BUTTON_25
 
 _ADD_STR_OFFSET_FOR_EG_FUNCTIONS:
     LDAA    #4
@@ -15009,7 +15009,7 @@ _ADD_STR_OFFSET_FOR_EG_FUNCTIONS:
     STAB    M_EDIT_PARAM_STR_INDEX
     JMP     _PRINT_EDIT_INFO
 
-_IS_BUTTON_25:
+_TEST_IF_BUTTON_25:
     CLRB
     CMPA    #BUTTON_25
     BEQ     _BUTTON_IS_24_OR_25
@@ -15019,7 +15019,7 @@ _IS_BUTTON_25:
     BEQ     _BUTTON_IS_24_OR_25
 
     STAA    M_EDIT_PARAM_STR_INDEX
-    JMP     _IS_BUTTON_31
+    JMP     _TEST_IF_BUTTON_31
 
 _BUTTON_IS_24_OR_25:
 ; This toggle value is either 0, or 0xFF.
@@ -15084,7 +15084,7 @@ _RESET_EDIT_PARAM:
     STAA    M_LAST_PRESSED_BTN
     JMP     UI_EDIT_MODE
 
-_IS_BUTTON_31:
+_TEST_IF_BUTTON_31:
     CMPA    #BUTTON_31
     BNE     _PRINT_EDIT_INFO
 
@@ -15880,7 +15880,7 @@ _END_1:
 
 _UI_FUNCTION_MODE_BUTTON_6_GLISSANDO:
     TBA
-    BRA     _IS_PARAM_ENABLED
+    BRA     _TEST_IF_PARAM_ENABLED
 
 _PRINT_MOD_SRC_FN_PARAM:
 ; Perform a bitwise AND operation on the param number, then shift right
@@ -15966,7 +15966,7 @@ _SHIFT_FLAG_PARAMETER_LOOP:
     DECB
     BNE     _SHIFT_FLAG_PARAMETER_LOOP
 
-_IS_PARAM_ENABLED:
+_TEST_IF_PARAM_ENABLED:
 ; Test bit 0 of the parameter value to determine whether it is enabled,
 ; or disabled. Lookup the corresponding string accordingly, and print.
     BITA    #1
@@ -16201,7 +16201,7 @@ _WRITE_PROTECT_STATUS_TO_STR_BUFFER:
     LDAA    <M_MEM_PROTECT_FLAGS
     PULB
     TSTB
-    BNE     _IS_CRT_MEMORY_PROTECTED
+    BNE     _TEST_IF_CRT_MEMORY_PROTECTED
 
 ; Test internal memory protection.
     BITA    #MEM_PROTECT_INT
@@ -16211,7 +16211,7 @@ _PRINT_MSG_ON:
     LDX     #str_on
     BRA     _PRINT_STATUS_STRING
 
-_IS_CRT_MEMORY_PROTECTED:
+_TEST_IF_CRT_MEMORY_PROTECTED:
     BITA    #MEM_PROTECT_CRT
     BEQ     _PRINT_MSG_OFF
     BRA     _PRINT_MSG_ON
@@ -16330,14 +16330,14 @@ _CALC_ALG_NUM:
 ; If this register is now < 0.
     BMI     _RESET
 
-    BRA     _IS_CURRENT_OPERATOR
+    BRA     _TEST_IF_CURRENT_OPERATOR
 
 ; If we've reached 0 without a result, reset.
 _RESET:
     LDAB    #5
     STAB    M_SELECTED_OPERATOR
 
-_IS_CURRENT_OPERATOR:
+_TEST_IF_CURRENT_OPERATOR:
     LDAB    M_SELECTED_OPERATOR
     CMPB    M_OP_CURRENT
     BEQ     _PRINT_OP_NUMBER
