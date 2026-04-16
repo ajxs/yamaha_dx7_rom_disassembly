@@ -1052,7 +1052,7 @@ TEST_MAIN_LOOP:
 ;
 ; DESCRIPTION:
 ; The first of the two main diagnostic test functions.
-; This subroutine initialises the currently selected diagnotic test function.
+; This subroutine initialises the currently selected diagnostic test function.
 ;
 ; ==============================================================================
 TEST_MAIN_FUNCTIONS_1:
@@ -2734,23 +2734,24 @@ MAIN_PROCESS_INPUT:
     BHI     _END_MAIN_PROCESS_INPUT             ; If A > 43, branch.
 
 ; Was the last input from the front-panel slider?
-    BEQ     _IS_MEMORY_PROTECTED
+    BEQ     _TEST_IF_SETTING_MEM_PROTECT
 
     CLR     M_INPUT_EVENT_COMES_FROM_SLIDER
 
-_IS_MEMORY_PROTECTED:
+_TEST_IF_SETTING_MEM_PROTECT:
     LDAB    M_MEM_SELECT_UI_MODE
     CMPB    #UI_MODE_SET_MEM_PROTECT
-    BNE     _IS_EDITING_PATCH_NAME
+    BNE     _TEST_IF_EDITING_PATCH_NAME
 
-; Was the triggering button code above '33'?
+; Synth is in the 'Set Memory Protect' UI mode.
+; Was the triggering button code less than '33'?
 ; Since the 'M_LAST_FRONT_PANEL_INPUT_ALTERNATE' is incremented by 1 when
-; the source is a front-panel button, this ensures that any non-numeric
+; the source is a front-panel button, this ensures that any numeric
 ; front-panel button press is not handled.
     CMPA    #33
-    BCS     _MAIN_PROCESS_INPUT_END              ; If A > 33, return.
+    BCS     _MAIN_PROCESS_INPUT_END              ; If A < 33, return.
 
-_IS_EDITING_PATCH_NAME:
+_TEST_IF_EDITING_PATCH_NAME:
     CLR     M_EDIT_KEY_TRANSPOSE_ACTIVE
     TST     M_PATCH_NAME_EDIT_ASCII_MODE_ENABLED
     BNE     _MAIN_PROCESS_INPUT_PATCH_NAME_EDIT_ASCII_MODE
@@ -12042,9 +12043,11 @@ _SQUARE_POSITIVE:
 _LFO_S_H:
 ; First test the 'Reset Flag' to determine whether a new 'random' Sample+Hold
 ; value needs to be sampled.
-; If the MSB is set, then the 'Sample+Hold Accumulator' register is multiplied
-; by a prime number (179), and the lower-byte has another prime (11) added to
-; it. The effect is an inexpensive pseudo-random value.
+; The Sample+Hold LFO uses a linear congruential generator to generate a
+; pseudo-random number.
+; The 'Sample+Hold Accumulator' register is multiplied by a prime number (179),
+; and the lower-byte has another prime (11) added to it.
+; See: https://en.wikipedia.org/wiki/Linear_congruential_generator
     TST     M_LFO_SAMPLE_HOLD_RESET_FLAG
     BPL     _END_LFO_GET_AMPLITUDE
 
