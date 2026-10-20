@@ -1274,8 +1274,10 @@ TEST_STAGE_INCREMENT:
     CMPA    #7
     BEQ     TEST_ALL_STAGES_COMPLETE
 
-; Tests not finished.
-    BSR     TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG
+; Tests whether the AD test stage 5 has been completed.
+; If not, it prints a message indicating that the AD tests are incomplete and
+; blocks the test stage increment.
+    BSR     TEST_IF_AD_TEST_STAGE_COMPLETE
 
     INC     M_TEST_STAGE
     LDAA    M_TEST_STAGE
@@ -1353,7 +1355,10 @@ TEST_STAGE_DECREMENT:
     TST     M_TEST_STAGE
     BEQ     _END_TEST_STAGE_DECREMENT
 
-    BSR     TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG
+; Tests whether the AD test stage 5 has been completed.
+; If not, it prints a message indicating that the AD tests are incomplete and
+; blocks the test stage decrement.
+    BSR     TEST_IF_AD_TEST_STAGE_COMPLETE
 
     DEC     M_TEST_STAGE
     BSR     TEST_CLEAR_FLAGS
@@ -1371,7 +1376,7 @@ _END_TEST_STAGE_DECREMENT:
 
 
 ; ==============================================================================
-; TEST_5_AD_CHECK_COMPLETE_FLAG
+; TEST_IF_AD_TEST_STAGE_COMPLETE
 ; ==============================================================================
 ; LOCATION: 0xC181
 ;
@@ -1379,21 +1384,26 @@ _END_TEST_STAGE_DECREMENT:
 ; Tests whether each stage of the AD test has been completed.
 ; The state of each AD test stage is stored in a bitmask in the flag at address
 ; 0xFF. A value of 63 (0b111111) indicates that all 6 tests have been run.
-; If the AD tests have not been completed, a message is printed to the LCD.
-; Otherwise if complete the AD test stage flags are cleared.
+; Called before incrementing or decrementing the test stage number.
+; If the AD tests have been started but not completed, an error is printed,
+; and the return address of the calling routine is popped from the stack, so
+; the test stage increment/decrement is effectively blocked.
+; If complete, or no testing has started yet, the AD test flags are cleared.
 ;
 ; MEMORY USED:
 ; * M_TEST_STAGE_5_COMPLETION_STATES: The AD test stage complete flag.
 ;
 ; ==============================================================================
-TEST_STAGE_5_AD_CHECK_COMPLETE_FLAG:
+TEST_IF_AD_TEST_STAGE_COMPLETE:
     LDAB    <M_TEST_STAGE_5_COMPLETION_STATES
     BEQ     _TEST_STAGE_5_COMPLETE
 
     CMPB    #%111111
     BEQ     _TEST_STAGE_5_COMPLETE
 
-; If the AD tests are incomplete, print the message and return.
+; If the AD tests are incomplete, pop the return address of the calling
+; test stage increment/decrement routine, and jump to the LCD print routine,
+; so that the test stage change is blocked.
     PULX
     LDX     #str_not_complete
     JMP     LCD_CLEAR_LINE_2_PRINT_AND_UPDATE
