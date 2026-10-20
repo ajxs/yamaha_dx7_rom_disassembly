@@ -781,9 +781,8 @@ M_EDIT_PARAM_STR_INDEX:                   equ  $257E
 M_TEST_STAGE:                             equ  $257F
 M_TEST_STAGE_SUB:                         equ  $2580
 
-; This variable seems to track whether test stage 3 has been finished.
-; I don't really know what purpose it actually serves.
-M_TEST_STAGE_3_STATUS:                    equ  $2581
+; Stores the previous test stage. Used to run test stages 6 and 7.
+M_TEST_STAGE_PREVIOUS:                    equ  $2581
 
 ; This variable is a timer for triggering the 'Active Sensing' MIDI message.
 M_MIDI_ACTIVE_SENSING_TX_COUNTER:         equ  $2582
@@ -967,7 +966,7 @@ TEST_ENTRY:
 ; Reset variables used in the test stages.
     CLR     M_LAST_FRONT_PANEL_INPUT
     CLR     M_TEST_STAGE_5_COMPLETION_STATES
-    CLR     M_TEST_STAGE_3_STATUS
+    CLR     M_TEST_STAGE_PREVIOUS
     LDAA    #7
     STAA    M_TEST_LAST_ANALOG_INPUT
     STAA    <M_TEST_MODE_BUTTON_COMBO_STATE
@@ -1088,12 +1087,12 @@ _TEST_IF_TEST_STAGE_8:
 ; This variable is the front-panel button index + 1.
     LDAB    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
     CMPB    #(BUTTON_1 + 1)
-    BNE     _TEST_IF_BUTTON_17_PRESSED
+    BNE     _TEST_IF_BUTTON_16_PRESSED
 
     JSR     TEST_STAGE_8_CRT_EEPROM
     BRA     _END_TEST_MAIN_FUNCTIONS_1
 
-_TEST_IF_BUTTON_17_PRESSED:
+_TEST_IF_BUTTON_16_PRESSED:
 ; Test if front-panel button 16 was pressed.
     CMPB    #(BUTTON_16 + 1)
     BNE     _END_TEST_MAIN_FUNCTIONS_1
@@ -1150,19 +1149,19 @@ _END_TEST_MAIN_FUNCTIONS_1:
 TEST_MAIN_FUNCTIONS_2:
     LDAA    M_TEST_STAGE
     CMPA    #1
-    BNE     _TEST_IF_TEST_STAGE_3_COMPLETE
+    BNE     _TEST_IF_TEST_STAGE_CHANGED
 
     JSR     TEST_STAGE_2_LCD
     RTS
 
-_TEST_IF_TEST_STAGE_3_COMPLETE:
-    CMPA    M_TEST_STAGE_3_STATUS
+_TEST_IF_TEST_STAGE_CHANGED:
+    CMPA    M_TEST_STAGE_PREVIOUS
     BNE     _TEST_IF_TEST_STAGE_6
 
     BRA     _TEST_IF_TEST_STAGE_3_ACTIVE
 
 _TEST_IF_TEST_STAGE_6:
-    STAA    M_TEST_STAGE_3_STATUS
+    STAA    M_TEST_STAGE_PREVIOUS
     CMPA    #5
     BNE     _TEST_IF_TEST_STAGE_7
 
@@ -1180,9 +1179,8 @@ _TEST_IF_TEST_STAGE_3_ACTIVE:
     CMPA    #2
     BNE     _END_TEST_MAIN_FUNCTIONS_2
 
-; The following section deals with completing the A/D input tests.
-; This code deals specifically with the sustain, and portamento
-; pedal input.
+; The following section deals with completing the switch tests.
+; This code tests the sustain, and portamento pedal input.
     JSR     MAIN_PORTA_SUS_PDL_STATE_UPDATE
     LDAA    M_TEST_STAGE_SUB
     CMPA    #40
@@ -1193,7 +1191,7 @@ _TEST_IF_TEST_STAGE_3_ACTIVE:
     BITB    #PEDAL_STATUS_SUSTAIN_ACTIVE
     BEQ     _END_TEST_MAIN_FUNCTIONS_2
 
-; If the sustain pedal check was successful, advance the A/D test,
+; If the sustain pedal check was successful, advance the switch test,
 ; and proceed to testing the portamento pedal input.
     INCA
     STAA    M_TEST_STAGE_SUB
@@ -1288,9 +1286,10 @@ TEST_STAGE_INCREMENT:
 
     INCA
 
-; Stores the test stage in memory at this location.
-; This is never referenced explicitly anywhere else.
-    STAA    $2078
+; Store the value '4' in the current patch edit buffer's operator 1
+; key velocity sensitivity parameter.
+; This is done so that the key velocity can be heard.
+    STAA    M_PATCH_BUFFER_EDIT + 105 + PATCH_OP_KEY_VEL_SENS
     JSR     PATCH_ACTIVATE
 
 _STOP_TEST_TONE_AND_RETURN:
@@ -1333,7 +1332,7 @@ TEST_CLEAR_FLAGS:
     CLR     M_PATCH_CURRENT_MODIFIED_FLAG
     CLR     M_TEST_STAGE_5_COMPLETION_STATES
     LDAA    #6
-    STAA    M_MIDI_ACTIVE_SENSING_TX_COUNTER
+    STAA    M_TEST_LAST_ANALOG_INPUT
     JSR     TEST_PRINT_STAGE_NAME
     JSR     TEST_RESET_VOICE_PARAMS
 
@@ -1417,8 +1416,6 @@ str_not_complete:    DC "NOT COMPLETED !", 0
 ; This is responsible for printing the string seen on the top line of the LCD
 ; during the diagnostic tests, such as: "TEST5 A/D".
 ;
-; Test three clears the LCD screen, so nothing is printed.
-;
 ; ==============================================================================
 TEST_PRINT_STAGE_NAME:
     JSR     LCD_CLEAR
@@ -1429,12 +1426,11 @@ TEST_PRINT_STAGE_NAME:
     JSR     LCD_STRCPY
 
 ; Check if this is test stage 3.
-; Test three clears the LCD, so this is skipped.
     LDAB    M_TEST_STAGE
     CMPB    #2
     BNE     _TEST_PRINT_STAGE_NAME
 
-; In the case of test 3, the LED contents are cleared.
+; Test stage 3 displays the LED contents.
     CLR     M_PATCH_NUMBER_CURRENT
     JSR     LED_PRINT_PATCH_NUMBER
 
@@ -1460,7 +1456,7 @@ TABLE_TEST_STAGE_NAMES:
     DC.W str_test_5_ad
     DC.W str_test_6_crt_r
     DC.W str_test_7_crt_w
-    DC.W str_test_8_ctr_rw
+    DC.W str_test_8_crt_rw
 
 str_test_1_level:    DC "1 LEVEL", 0
 str_test_3_sw:       DC "3 SW", 0
@@ -1468,7 +1464,7 @@ str_test_4_kbd:      DC "4 KBD", 0
 str_test_5_ad:       DC "5 A/D", 0
 str_test_6_crt_r:    DC "6 CRT R", 0
 str_test_7_crt_w:    DC "7 CRT W", 0
-str_test_8_ctr_rw:   DC "8 CRT RW", 0
+str_test_8_crt_rw:   DC "8 CRT RW", 0
 
 
 ; ==============================================================================
@@ -1496,11 +1492,11 @@ TEST_STAGE_1_TONE:
     JSR     MIDI_VOICE_REMOVE
     JSR     MIDI_VOICE_ADD
 
-; Print ROM version.
-    LDX     #str_adj_mr3
+; Print the level-adjust instruction.
+    LDX     #str_adj_vr3
     JMP     LCD_CLEAR_LINE_2_PRINT_AND_UPDATE
 
-str_adj_mr3:         DC "ADJ VR3 M1.0-1.8", 0
+str_adj_vr3:         DC "ADJ VR3 M1.0-1.8", 0
 str_test_entry:      DC " V1.8 24-Oct-85  Test Entry ?", 0
 
 ; ==============================================================================
@@ -1694,7 +1690,7 @@ _PRINT_SWITCH_NUMBER:
     BEQ     _CORRECT_BUTTON_PRESSED
 
 ; If the incorrect button has been pressed, the number corresponding to
-; this key will be shown on the LED output, and the appropriate message
+; the expected key will be shown on the LED output, and the appropriate message
 ; printed to the LCD.
     LDAA    #60
     STAA    EXPECTED_SWITCH_INPUT
@@ -1986,9 +1982,6 @@ _BYTE_SUCCESSFULLY_CLEARED:
 ; Registers:
 ; * IX:   The address in cartidge memory to write to.
 ;
-; RETURNS:
-; * The carry flag is set to indicate an error condition.
-;
 ; ==============================================================================
 TEST_CRT_WRITE_BYTE:
     LDAA    #$55
@@ -1996,11 +1989,11 @@ TEST_CRT_WRITE_BYTE:
 
 ; If the carry-bit is set after the previous function call, it indicates an
 ; error condition has occurred.
-    BCS     TEST_STAGE_8_CRT_PRINT_ERROR
+    BCS     TEST_CRT_WRITE_FAILED
 
     LDAA    #$AA
     JSR     CRT_WRITE_BYTE
-    BCS     TEST_STAGE_8_CRT_PRINT_ERROR
+    BCS     TEST_CRT_WRITE_FAILED
 
     RTS
 
@@ -2023,7 +2016,7 @@ _TEST_STAGE_8_CLEAR_BYTE_LOOP:
     JSR     CRT_WRITE_BYTE
 
 ; If the carry bit is set, this indicates an error condition.
-    BCS     TEST_STAGE_8_CRT_PRINT_ERROR
+    BCS     TEST_CRT_WRITE_FAILED
 
     INX
     CPX     #P_CRT_END
@@ -2031,7 +2024,7 @@ _TEST_STAGE_8_CLEAR_BYTE_LOOP:
 
     RTS
 
-TEST_STAGE_8_CRT_PRINT_ERROR:
+TEST_CRT_WRITE_FAILED:
     PULX
     BRA     TEST_CRT_PRINT_ERROR_MESSAGE
 
@@ -2253,7 +2246,7 @@ _RESET_LED_TEST_PATTERN:
 ; ==============================================================================
 ; LOCATION: 0xC569
 ;
-; This subroutine tests the internal RAM ICs.
+; This subroutine tests the external RAM ICs.
 ; It writes, and then reads back arbitrary data in 32 byte blocks between
 ; addresses 0x1000, and 0x27C0, storing the current memory in a temporary
 ; location.
@@ -2376,10 +2369,6 @@ _TEST_RAM_MEMCPY_LOOP:
 ; read without errors. If the same data is not read back, an error condition
 ; occurs.
 ;
-; ARGUMENTS:
-; Registers:
-; * IX:   The starting address of the test.
-;
 ; ==============================================================================
 TEST_RAM_BLOCK:
 ; B is used as the loop index.
@@ -2390,11 +2379,11 @@ _TEST_RAM_BLOCK_LOOP:
     ABX
     LDAA    #$55
 
-; Test writing 0x55 to 0xF9+ACCB.
+; Test writing 0x55 to (0xF9)+ACCB.
     BSR     TEST_RAM_ADDRESS
     LDAA    #$AA
 
-; Test writing 0xAA to 0xF9+ACCB.
+; Test writing 0xAA to (0xF9)+ACCB.
     BSR     TEST_RAM_ADDRESS
 
 ; Increment loop counter.
