@@ -1196,7 +1196,7 @@ _TEST_IF_TEST_STAGE_3_ACTIVE:
     INCA
     STAA    M_TEST_STAGE_SUB
     LDX     #str_push_porta
-
+; Falls-through below.
 
 ; ==============================================================================
 ; LCD_CLEAR_LINE_2_PRINT_AND_UPDATE
@@ -1333,6 +1333,7 @@ TEST_CLEAR_FLAGS:
     CLR     M_TEST_STAGE_SUB
     CLR     M_PATCH_CURRENT_MODIFIED_FLAG
     CLR     M_TEST_STAGE_5_COMPLETION_STATES
+; Set the last analog input source to the battery voltage reading (6).
     LDAA    #6
     STAA    M_TEST_LAST_ANALOG_INPUT
     JSR     TEST_PRINT_STAGE_NAME
@@ -1440,7 +1441,7 @@ TEST_PRINT_STAGE_NAME:
     CMPB    #2
     BNE     _TEST_PRINT_STAGE_NAME
 
-; Test stage 3 displays the LED contents.
+; Test stage 3 shows '1' on the LED: the first switch to press.
     CLR     M_PATCH_NUMBER_CURRENT
     JSR     LED_PRINT_PATCH_NUMBER
 
@@ -1478,8 +1479,10 @@ str_test_8_crt_rw:   DC "8 CRT RW", 0
 
 
 ; ==============================================================================
-; TEST_1_TONE
+; TEST_STAGE_1_TONE
 ; ==============================================================================
+; LOCATION: 0xC20E
+;
 ; DESCRIPTION:
 ; This test stage plays a 440hz test sine tone to test the synthesiser's sound
 ; generation ability.
@@ -1870,6 +1873,9 @@ TEST_STAGE_5_AD:
     CMPB    M_TEST_LAST_ANALOG_INPUT
     BEQ     _TEST_STAGE_5_AD_CONVERT_OUTPUT
 
+; If the source has changed to the battery voltage reading, ignore it.
+; Since 'TEST_CLEAR_FLAGS' sets the last source to 6 (battery), the battery
+; reading is shown on the LED until another analog input is used.
     CMPB    #6
     BEQ     _END_TEST_STAGE_5_AD
 
@@ -1901,7 +1907,7 @@ TEST_STAGE_5_AD:
 
 _TEST_STAGE_5_AD_CONVERT_OUTPUT:
 ; The following subroutine quantises the raw analog input value (0-255) to
-; the final output range (0-99).
+; the final output range (0-98).
     LDAA    <M_ANALOG_DATA
     LDAB    #99
     MUL
@@ -1990,7 +1996,7 @@ _BYTE_SUCCESSFULLY_CLEARED:
 ;
 ; ARGUMENTS:
 ; Registers:
-; * IX:   The address in cartidge memory to write to.
+; * IX:   The address in cartridge memory to write to.
 ;
 ; ==============================================================================
 TEST_CRT_WRITE_BYTE:
@@ -2112,7 +2118,7 @@ TEST_STAGE_7_CRT_WRITE:
 ;
 ; DESCRIPTION:
 ; Checks if the cartridge is inserted by reading line 5 of 8255 port C. If this
-; line is pulled low, it indicates that a cartidge is inserted.
+; line is pulled low, it indicates that a cartridge is inserted.
 ; In the case it is not inserted, the 'INSERT CARTRIDGE' message is printed to
 ; the LCD screen.
 ;
@@ -2256,6 +2262,7 @@ _RESET_LED_TEST_PATTERN:
 ; ==============================================================================
 ; LOCATION: 0xC569
 ;
+; DESCRIPTION:
 ; This subroutine tests the external RAM ICs.
 ; It writes, and then reads back arbitrary data in 32 byte blocks between
 ; addresses 0x1000, and 0x27C0, storing the current memory in a temporary
@@ -2340,7 +2347,7 @@ TEST_RAM_COPY_BLOCK_FROM_TEMP:
 ;
 ; DESCRIPTION:
 ; This function is used when performing the diagnostic tests on the RAM ICs.
-; It copies a 32 byte block from  the address in stored in the pointer at
+; It copies a 32 byte block from the address stored in the pointer at
 ; 0x2183 to the address stored in the pointer at 0x2185.
 ;
 ; ARGUMENTS:
@@ -2374,7 +2381,7 @@ _TEST_RAM_MEMCPY_LOOP:
 ; LOCATION: 0xC5B3
 ;
 ; DESCRIPTION:
-; Tests a 32 byte block of RAM, starting at the address in IX.
+; Tests a 32 byte block of RAM.
 ; Tests whether the RAM at each byte address can be written, and subsequently
 ; read without errors. If the same data is not read back, an error condition
 ; occurs.
@@ -3478,7 +3485,7 @@ _END_INPUT_ANALOG_UPDATE_MODULATION:
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '2': The synth's foot control input.
+; is '4': The synth's foot control input.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
@@ -3496,7 +3503,7 @@ INPUT_ANALOG_SRC_4_FOOT_CONTROLLER:
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '2': The synth's breath control input.
+; is '5': The synth's breath control input.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
@@ -3514,7 +3521,7 @@ INPUT_ANALOG_SRC_5_BREATH_CONTROLLER:
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '2': The synth's keys' aftertouch.
+; is '6': The synth's keys' aftertouch.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
@@ -3532,7 +3539,7 @@ INPUT_ANALOG_SRC_6_AFTERTOUCH:
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '2': The synth's battery voltage.
+; is '7': The synth's battery voltage.
 ; This is where the battery voltage is updated.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
@@ -4663,7 +4670,7 @@ _PRINT_DIGITS:
 ; trailing '.' char on the LED.
     LDAB    M_PATCH_CURRENT_MODIFIED_FLAG
     CMPB    #EDITED_PATCH_IN_WORKING
-    BNE     _ENABLE_LED1_DOT
+    BNE     _DISABLE_LED1_DOT
 
     ANDA    #%1111111
 
@@ -4671,7 +4678,7 @@ _STORE_LED1_DATA:
     STAA    P_LED1
     RTS
 
-_ENABLE_LED1_DOT:
+_DISABLE_LED1_DOT:
     ORAA    #%10000000
     BRA     _STORE_LED1_DATA
 
@@ -5773,7 +5780,7 @@ str_formatting_end:     DC " FORMATTING END ", 0
 ;
 ; DESCRIPTION:
 ; Checks if the cartridge is inserted by reading line 5 of 8255 port C. If
-; this line is pulled low, it indicates that a cartidge is inserted.
+; this line is pulled low, it indicates that a cartridge is inserted.
 ; In the case it is not inserted, the 'INSERT CARTRIDGE' message is printed
 ; to the LCD screen.
 ;
@@ -7550,17 +7557,23 @@ _DEACTIVATE_VOICE_LOOP_INCREMENT:               ; Restore iterator.
 ; LOCATION: 0xD76B
 ;
 ; DESCRIPTION:
-; This subroutine pops a reference to a jump-table from the subroutine's
-; return pointer on the stack, then unconditionally 'jumps' to the relative
-; offset in the entry associated with the number in ACCB.
-; The table is stored in a two-byte format (Entry Number):(Relative Offset).
-; Once the correct entry in the table has been found, the relative offset is
-; added to the pointer in IX, and then jumped to.
-; This is effectively a switch statement, with a relative jump.
+; Implements a switch statement using the jump table that immediately follows
+; the 'JSR' instruction calling this subroutine.
+; The return address is popped from the stack to point to the table, so control
+; never returns to the instruction after the 'JSR'.
+; The selected handler's return statement then returns to whatever called the
+; original caller.
+;
+; Each table entry is two bytes: (Relative Offset):(Entry Number).
+; The table is searched for the first entry whose number is greater than the
+; value in ACCB. An entry number of '0' marks the end of the table, and is
+; used as the default case.
+; The selected entry's offset is added to the address of the entry itself,
+; and the result is jumped to. The offsets are unsigned, so each handler must
+; be located after its table entry.
 ;
 ; ARGUMENTS:
 ; Registers:
-; * IX:   The 'return address' is popped off the stack into IX.
 ; * ACCB: The 'number' of the entry to jump to.
 ;
 ; ==============================================================================
@@ -7584,8 +7597,8 @@ _TEST_IF_END_OF_JUMP_TABLE:
     BRA     _TEST_IF_END_OF_JUMP_TABLE
 
 _END_JUMP_TO_RELATIVE_OFFSET:
-; Load the relative offset in the current entry, add this to the return
-; address popped from the stack, and jump to it.
+; Add the relative offset to the address of the current entry, and jump to
+; it. ACCB is preserved for the handler.
     PSHB
     LDAB    0,x
     ABX
@@ -7921,7 +7934,7 @@ _CRT_WRITE_PATCH_END:
 ;
 ; ARGUMENTS:
 ; Registers:
-; * IX:   The address in cartidge memory to write to.
+; * IX:   The address in cartridge memory to write to.
 ; * ACCA: The byte to be written.
 ;
 ; RETURNS:
@@ -7997,7 +8010,7 @@ str_write_error:      DC " WRITE ERROR !", 0
 ; LOCATION: 0xD89F
 ;
 ; DESCRIPTION:
-; Reads a patch(128 bytes) from the cartidge memory address stored in the
+; Reads a patch(128 bytes) from the cartridge memory address stored in the
 ; pointer at 0xFB, to the memory location in RAM stored in the pointer
 ; at 0xF9.
 ;
