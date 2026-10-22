@@ -71,6 +71,9 @@ P_OPS_ALG_FDBK:                           equ  $2805
 
 ; Used to send the 3-bit analog volume value to the DAC.
 P_DAC:                                    equ  $280A
+; A write to this address signals the sub-CPU that the data has been received.
+; As per the Yamah DX7 Technical Analysis document, it doesn't matter what
+; data is written to this address.
 P_ACEPT:                                  equ  $280C
 P_LED1:                                   equ  $280E
 P_LED2:                                   equ  $280F
@@ -1068,10 +1071,22 @@ TEST_MAIN_LOOP:
 ;
 ; DESCRIPTION:
 ; The first of the two main diagnostic test functions.
-; This subroutine initialises the currently selected diagnostic test function.
+; This routine handles user input during the diagnostic tests, and dispatches
+; control to the appropriate test stage handler based on the current test
+; stage.
+; The 'NO', and 'YES' buttons decrement, and increment the test stage.
+; Any other input is passed to the test stages that depend on input:
+; * Stage 3: The switch test.
+; * Stage 4: The keyboard test.
+; * Stage 5: The A/D test. The 'FUNCTION' button skips to the next stage,
+;   even if the A/D test is incomplete.
+; * Stage 8: Button 1 runs the cartridge EEPROM test, and button 16 copies
+;   the cartridge to internal memory.
+; The pending input event is then cleared.
 ;
 ; ==============================================================================
 TEST_MAIN_FUNCTIONS_1:
+; Return if no input event is pending.
     TST     M_INPUT_EVENT_PENDING
     BNE     _TEST_IF_LAST_BTN_NO
 
@@ -1160,7 +1175,11 @@ _END_TEST_MAIN_FUNCTIONS_1:
 ;
 ; DESCRIPTION:
 ; The second of the two main diagnostic test functions.
-; This subroutine initialises the currently selected diagnostic test function.
+; Runs the diagnostic test stages that don't depend on input events:
+; * Stage 2: Advances the LCD, and LED test patterns.
+; * Stage 3: Checks the sustain, and portamento pedals, once all 40 buttons
+;   have been tested.
+; * Stages 6, and 7: The cartridge read, and write tests.
 ;
 ; ==============================================================================
 TEST_MAIN_FUNCTIONS_2:
@@ -3733,8 +3752,8 @@ HANDLER_NMI:
 ;
 ; DESCRIPTION:
 ; Reads a byte from the sub-CPU into ACCA.
-; This function waits until the CPU line 21 goes high to indicate the
-; end of transmission, as per the service manual.
+; This function waits until the CPU line 21 goes low to indicate the
+; sub-CPU being ready for data to be read, as per the service manual.
 ; Refer to page 23 in the official DX7 Technical Analysis document.
 ;
 ; ==============================================================================
@@ -3752,6 +3771,7 @@ READ_BYTE_FROM_SUB_CPU:
 ; Refer to page 23 in the technical analysis.
     CLR     IO_PORT_2_DATA
 
+; Signal to the sub-CPU that the incoming byte has been received.
     STAB    P_ACEPT
     RTS
 
