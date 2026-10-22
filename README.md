@@ -114,5 +114,3 @@ I would like to extend a sincere thank you to Jacques Mattheij for his contribut
 **Update 241019:** Earlier I speculated that this was a remnant of an earlier implementation, however I investigated version 1.6 (IG114640), and it doesn't have this functionality.
 
 This subroutine also features a seemingly useless extra loop, searching for a 'free' voice. This extraneous loop also features in the DX7 SER7 ROM.
-
-* What is the purpose of the `M_LAST_FRONT_PANEL_INPUT_ALTERNATE` variable? This seems to track the same information as `M_LAST_FRONT_PANEL_INPUT`, however the codes for the front-panel numeric buttons are incremented. This allows for a null value of `0`, which is tested against in some cases. Why weren't these two variables consolidated?

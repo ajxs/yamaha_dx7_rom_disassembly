@@ -366,10 +366,19 @@ M_EDIT_OSC_MODE_SYNC_FLAG:                equ  $96
 
 M_TEST_MODE_BUTTON_COMBO_STATE:           equ  $97
 
-; This variable seems to hold the source of the last front-panel input event,
-; with the value incremented.
-; This appears to also contain a null value of zero.
-M_LAST_FRONT_PANEL_INPUT_ALTERNATE:       equ  $98
+; The pending input event. This is set by the IRQ handler, and cleared once
+; the main loop (or the diagnostic test loop) has processed it.
+; * 0:    No pending event.
+; * 1-42: A front-panel button press (button index + 1).
+; * 42:   Also used for the 'STORE' button being released. This is the same
+;         value as a 'YES' button press, however the handlers are selected
+;         using 'M_LAST_FRONT_PANEL_INPUT', where these differ.
+; * 43:   Front-panel slider input (INPUT_DATA_ENTRY).
+; * 44:   A keyboard key was pressed (INPUT_KEYBOARD_KEY_PRESSED).
+; * 45:   Other analog input (INPUT_FINISHED).
+; Button presses are offset by one so that button 1 (index 0) can be
+; distinguished from 'no event'.
+M_INPUT_EVENT_PENDING:                    equ  $98
 
 ; This flag is set when the 'Edit/Char' button is held down during
 ; editing a patch name. It causes the front panel buttons to input
@@ -517,12 +526,16 @@ M_PATCH_NUMBER_COMPARE:                   equ  $209E
 M_SELECTED_OPERATOR:                      equ  $209F
 
 ; This variable holds the last input event source.
-; In contrast to the last button variable, this variable also tracks input
-; events from the front-panel slider.
+; The button index (0-41), 42 for the 'STORE' button being released, or 43 for
+; the slider. This is used as the index into the current input mode's table of
+; button handlers.
 M_LAST_FRONT_PANEL_INPUT:                 equ  $20A0
 
 ; The 'Input Mode' the synth is currently in.
 ; This is either, 'Play Mode', 'Edit Mode', or 'Function Mode'.
+;  * 0: Play Mode
+;  * 1: Edit Mode
+;  * 2: Function Mode
 M_INPUT_MODE:                             equ  $20A1
 
 ; The 0 indexed number of the last pressed button.
@@ -563,7 +576,9 @@ M_PORTA_MODE:                             equ  $20AA
 M_PORTA_GLISS_ENABLED:                    equ  $20AB
 
 ; The purpose of this variable is unknown, however it is set once to
-; 0x7F on reset, and set to 0x7F on MIDI error.
+; 0xF7 on reset, and set to 0xF7 on MIDI error.
+; The fact that 0xF7 indicates the end of a SysEx transmission could provide
+; a clue as to its original purpose, but it's not used in this ROM version.
 M_ERR_HANDLING_FLAG:                      equ  $20AC
 
 ; This variable holds the which 'sub-function' of button 8 in
@@ -688,6 +703,8 @@ M_MIDI_SYSEX_DATA_COUNTER:                equ  $2291
 ; The synth's 'Master Tune' setting.
 ; This 2-byte value is added to the logarithmic voice frequency values
 ; loaded to the EGS voice chip.
+; 0x100 is the default value.
+; When edited, this value is input as an 8-bit value, and shifted left one.
 M_MASTER_TUNE:                            equ  $2311
 M_MASTER_TUNE_LOW:                        equ  $2312
 M_KBD_SCALE_CURVE_INDEX:                  equ  $2313
@@ -1055,7 +1072,7 @@ TEST_MAIN_LOOP:
 ;
 ; ==============================================================================
 TEST_MAIN_FUNCTIONS_1:
-    TST     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    TST     M_INPUT_EVENT_PENDING
     BNE     _TEST_IF_LAST_BTN_NO
 
     RTS
@@ -1085,7 +1102,7 @@ _TEST_IF_TEST_STAGE_8:
 
 ; Test if front-panel button 1 was pressed.
 ; This variable is the front-panel button index + 1.
-    LDAB    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    LDAB    <M_INPUT_EVENT_PENDING
     CMPB    #(BUTTON_1 + 1)
     BNE     _TEST_IF_BUTTON_16_PRESSED
 
@@ -1130,7 +1147,7 @@ _TEST_STAGE_5:
     JSR     TEST_STAGE_5_AD
 
 _END_TEST_MAIN_FUNCTIONS_1:
-    CLR     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    CLR     M_INPUT_EVENT_PENDING
     CLR     M_LAST_FRONT_PANEL_INPUT
 
     RTS
@@ -1657,7 +1674,7 @@ str_test:    DC " TEST ", 0
 
 
 ; ==============================================================================
-; TEST_3_SWITCHES
+; TEST_STAGE_3_SWITCHES
 ; ==============================================================================
 ; LOCATION: 0xC2E3
 ;
@@ -1677,7 +1694,7 @@ TEST_STAGE_3_SWITCHES:
 EXPECTED_SWITCH_INPUT:                    equ $2580
 
 ; ==============================================================================
-    LDAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    LDAA    <M_INPUT_EVENT_PENDING
     CMPA    #40
     BLS     _TEST_IF_TEST_ALREADY_COMPLETE
 
@@ -1703,8 +1720,11 @@ _PRINT_SWITCH_NUMBER:
     BEQ     _CORRECT_BUTTON_PRESSED
 
 ; If the incorrect button has been pressed, the number corresponding to
-; the expected key will be shown on the LED output, and the appropriate message
-; printed to the LCD.
+; the expected switch will be shown on the LED output, and the appropriate
+; message printed to the LCD.
+
+; Store a value of '60' here so that the error will persist until the test
+; stage is reset.
     LDAA    #60
     STAA    EXPECTED_SWITCH_INPUT
     LDX     #str_error_see_led
@@ -1755,8 +1775,8 @@ TEST_STAGE_4_KBD:
 EXPECTED_KEY:                             equ $2580
 
 ; ==============================================================================
-; Test whether the last analog input event was a 'Key Down' event.
-    LDAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+; Test whether the last input event was a 'Key Down' event.
+    LDAA    <M_INPUT_EVENT_PENDING
     CMPA    #INPUT_KEYBOARD_KEY_PRESSED
     BEQ     _LAST_INPUT_WAS_KEY_DOWN
 
@@ -2120,7 +2140,10 @@ TEST_STAGE_7_CRT_WRITE:
 ; Checks if the cartridge is inserted by reading line 5 of 8255 port C. If this
 ; line is pulled low, it indicates that a cartridge is inserted.
 ; In the case it is not inserted, the 'INSERT CARTRIDGE' message is printed to
-; the LCD screen.
+; the LCD screen, and the rest of the test will be aborted.
+;
+; RETURNS:
+; * ACCA: The P_CRT_PEDALS_LCD value.
 ;
 ; ==============================================================================
 TEST_CRT_CHECK_INSERTED:
@@ -2131,6 +2154,9 @@ TEST_CRT_CHECK_INSERTED:
     RTS
 
 _PRINT_INSERT_CRT_MSG:
+; Popping the return address from the stack here will cause next return to
+; skip the rest of the caller function, effectively aborting the current
+; test stage.
     PULX
     LDX     #(str_crt_not_ready + 16)
     JMP     LCD_CLEAR_LINE_2_PRINT_AND_UPDATE
@@ -2147,6 +2173,10 @@ _PRINT_INSERT_CRT_MSG:
 ; inserted to check the status of the physical memory protection on the
 ; cartridge.
 ;
+; ARGUMENTS:
+; Registers:
+; * ACCA: The P_CRT_PEDALS_LCD value.
+;
 ; ==============================================================================
 TEST_CRT_CHECK_MEM_PROTECTION:
     BITA    #CRT_FLAG_PROTECTED
@@ -2155,6 +2185,9 @@ TEST_CRT_CHECK_MEM_PROTECTION:
     RTS
 
 _PRINT_MSG_MEM_PROTECTED:
+; Popping the return address from the stack here will cause next return to
+; skip the rest of the caller function, effectively aborting the current
+; test stage.
     PULX
     LDX     #str_mem_protected
     JMP     LCD_CLEAR_LINE_2_PRINT_AND_UPDATE
@@ -2461,13 +2494,14 @@ str_error_ram_ic:    DC "ERROR RAM IC", 0
 ; DESCRIPTION:
 ; Main system reset handler, and firmware program entry point.
 ; This subroutine resets the internal RAM, and is responsible for ensuring that
-; all parameters are set to acceptable values.
+; all non-volatile parameters that aren't cleared on reset are set to
+; acceptable values.
 ;
 ; ==============================================================================
 HANDLER_RESET:
+; Set all fields in the CCR (Condition Code Register).
+; Setting the 'I' bit masks all maskable interrupts.
     LDAA    #$FF
-
-; Set all fields in CCR (Condition Code Register).
     TAP
 
 ; Set up the synth's IO ports.
@@ -2481,6 +2515,9 @@ HANDLER_RESET:
 ; For more information refer to page 142 of the Hitachi HD6303 series handbook.
     LDAA    #%10001
     STAA    <IO_PORT_2_DIR
+
+; Set the P20 line low to indicate that the CPU isn't ready to read from the
+; sub-CPU until initialisation is complete.
     CLR     IO_PORT_2_DATA
 
 ; Set the CPU stack top.
@@ -2491,14 +2528,17 @@ HANDLER_RESET:
     LDAA    #1
     STAA    $2575
 
-; Ensure that the 'Master Tune' value is within the 0 - 0x1FF range.
+; Ensure that the 'Master Tune' value is within the 0 - 0x1FE range.
+; This value is stored as an 8-bit value shifted left (see 'MASTER_TUNE_SET').
+; Shifting it right, and clearing ACCA recovers the 8-bit value, which is then
+; shifted back. This masks an invalid value with 0x1FE.
     LDD     M_MASTER_TUNE
     LSRD
     CLRA
     LSLD
     STD     M_MASTER_TUNE
 
-; Reset the pitch-bend range.
+; Validate the pitch-bend range.
     LDAA    #13
     CMPA    M_PITCH_BND_RANGE
     BHI     _VALIDATE_PITCH_BEND_STEP
@@ -2519,9 +2559,10 @@ _VALIDATE_MIDI_RX_CHANNEL:
     CLR     M_MIDI_RX_CH
 
 _RESET_MIDI_TX_CH:
+; The MIDI transmit channel is always reset to 1.
     CLR     M_MIDI_TX_CH
 
-; Reset the portamento time.
+; Validate the portamento time.
     LDAA    #100
     CMPA    M_PORTA_TIME
     BHI     _VALIDATE_CURRENT_EDIT_PARAMETER
@@ -2532,11 +2573,11 @@ _VALIDATE_CURRENT_EDIT_PARAMETER:
     LDAA    M_CURRENT_PARAM_EDIT_MODE
     ANDA    #31
     CMPA    #5
-    BHI     _VALIDATE_OPERATOR_STATUS
+    BHI     _STORE_CURRENT_EDIT_PARAMETER
 
     LDAA    #6
 
-_VALIDATE_OPERATOR_STATUS:
+_STORE_CURRENT_EDIT_PARAMETER:
     STAA    M_CURRENT_PARAM_EDIT_MODE
 
 ; Set all operators as being enabled.
@@ -2627,6 +2668,7 @@ _CLEAR_INTERNAL_RAM_LOOP:
 ; then prints the synth's 'Welcome Message'.
     JSR     LCD_CLEAR
     JSR     LCD_INIT
+
     JSR     MIDI_INIT
 
 ; Set CPU line 20 high to indicate that the main CPU is ready to receive data
@@ -2641,6 +2683,7 @@ _CLEAR_INTERNAL_RAM_LOOP:
     STAA    P_LED1
 
 ; Clear the processor's condition codes.
+; This re-enables maskable interrupts.
     TAP
 
 ; Delay for 100x450 cycles to display the synth's welcome message.
@@ -2654,17 +2697,20 @@ _RESET_SHOW_WELCOME_MESSAGE_DELAY:
 ; Enable OCF IRQ.
     LDAA    #TIMER_CTRL_EOCI
     STAA    <TIMER_CTRL_STATUS
+
+; When the synth is in Edit or Function Mode, the previously active patch is
+; reloaded from the edit buffer.
     TST     M_INPUT_MODE
     BNE     _LOAD_CURRENTLY_SELECTED_PATCH_FROM_EDIT_BUFFER
 
 ; The following code loads whatever patch was previously selected.
 ; If it has been edited, the patch is loaded from the edit buffer,
-; otherwise it is reloaded from its original location in RAM.
+; otherwise it is reloaded from its original location.
     LDAA    M_PATCH_CURRENT_MODIFIED_FLAG
     CMPA    #EDITED_PATCH_IN_WORKING
     BEQ     _LOAD_CURRENTLY_SELECTED_PATCH_FROM_EDIT_BUFFER
 
-; Since the patch has not been edited, it is reloaded from RAM.
+; Since the patch has not been edited, it is reloaded from memory.
     LDAA    M_PATCH_NUMBER_CURRENT
     STAA    M_LAST_PRESSED_BTN
     TST     M_MEM_SELECT_UI_MODE
@@ -2719,7 +2765,7 @@ MAIN_LOOP:
 
 
 ; ==============================================================================
-; MAIN_PROCESS_BUTTON_INPUT
+; MAIN_PROCESS_INPUT
 ; ==============================================================================
 ; LOCATION: 0xC71B
 ;
@@ -2729,13 +2775,13 @@ MAIN_LOOP:
 ; ==============================================================================
 MAIN_PROCESS_INPUT:
 ; Check whether there is a button event that needs processing.
-; If the last analog input source value is '0', or above '43', then the last
-; physical user action was something other than a button press.
+; If the value is '0', or above '43', then the last physical user action was
+; something other than a button press.
 ; In this case, return.
-    LDAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    LDAA    <M_INPUT_EVENT_PENDING
     BEQ     _END_MAIN_PROCESS_INPUT
 
-    CLR     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    CLR     M_INPUT_EVENT_PENDING
     CMPA    #INPUT_DATA_ENTRY
     BHI     _END_MAIN_PROCESS_INPUT             ; If A > 43, branch.
 
@@ -2751,7 +2797,7 @@ _TEST_IF_SETTING_MEM_PROTECT:
 
 ; Synth is in the 'Set Memory Protect' UI mode.
 ; Was the triggering button code less than '33'?
-; Since the 'M_LAST_FRONT_PANEL_INPUT_ALTERNATE' is incremented by 1 when
+; Since the 'M_INPUT_EVENT_PENDING' is incremented by 1 when
 ; the source is a front-panel button, this ensures that any numeric
 ; front-panel button press is not handled.
     CMPA    #33
@@ -2887,8 +2933,8 @@ TABLE_INPUT_MODE_PTR_TABLES:
 
 ; ==============================================================================
 ; 'Play Mode' (Mode 0) button function pointers.
-; This table starts at button 32, since in play mode buttons 0-31 initiate
-; loading a patch from memory.
+; This table starts at index 31 (button 32), since in play mode buttons 0-31
+; load a patch from memory
 ; ==============================================================================
 TABLE_INPUT_MODE_PLAY:
     DC.W PATCH_PROGRAM_CHANGE
@@ -2896,7 +2942,7 @@ TABLE_INPUT_MODE_PLAY:
     DC.W BTN_MEMORY_PROTECT
     DC.W BTN_MEMORY_PROTECT
     DC.W BTN_CLEAR_RW_FLAG_AND_EXIT
-    DC.W BTN_EDIT                                ; Index 8.
+    DC.W BTN_EDIT
     DC.W MEMORY_SELECT_INT
     DC.W MEMORY_SELECT_CRT
     DC.W BTN_FUNC
@@ -3214,7 +3260,7 @@ HANDLER_IRQ:
 ; Handle a 'Key Down' event.
     CLI
     LDAA    #INPUT_KEYBOARD_KEY_PRESSED
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    STAA    <M_INPUT_EVENT_PENDING
     JSR     INPUT_KEY_PRESSED
     JMP     HANDLER_IRQ_EXIT
 
@@ -3249,7 +3295,7 @@ _HANDLER_IRQ_IS_BUTTON_PRESSED_EVENT:
 INPUT_FRONT_PANEL_BUTTON_PRESSED:
     STAA    M_LAST_FRONT_PANEL_INPUT
     INCA
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    STAA    <M_INPUT_EVENT_PENDING
     DECA
     PSHA
 
@@ -3266,9 +3312,9 @@ INPUT_FRONT_PANEL_BUTTON_PRESSED:
     CMPA    #BUTTON_YES_UP
     BNE     _BTN_NOT_YES
 
-    CLR     M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    CLR     M_INPUT_EVENT_PENDING
 
-; Set IO Port 2 to indicate that the CPU is not ready to read from the
+; Set IO Port 2 to indicate that the CPU is ready to read from the
 ; sub-CPU, and jump to the diagnostic tests.
     LDAB    #1
     STAB    <IO_PORT_2_DATA
@@ -3281,7 +3327,7 @@ _BTN_NOT_YES:
     LDAA    M_CURRENT_PARAM_FUNCTION_MODE
     STAA    M_LAST_FRONT_PANEL_INPUT
     INCA
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    STAA    <M_INPUT_EVENT_PENDING
     BRA     _END_INPUT_FRONT_PANEL_BUTTON_RELEASED
 
 _TEST_MODE_PROMPT_NOT_ACTIVE:
@@ -3294,7 +3340,7 @@ _END_INPUT_FRONT_PANEL_BUTTON_RELEASED:
     RTS
 
 _HANDLER_IRQ_IS_BUTTON_RELEASED_EVENT:
-; A value of '152' indicates a 'Button Released' event.
+; A value of '153' indicates a 'Button Released' event.
 ; Subtract 80 from the 'source' value to properly index the buttons.
     CMPA    #153
     BNE     _HANDLER_IRQ_IS_ANALOG_INPUT_EVENT
@@ -3347,7 +3393,7 @@ _BUTTON_STORE_RELEASED:
     CLR     M_PATCH_READ_OR_WRITE
     LDAA    #BUTTON_STORE_RELEASED
     STAA    M_LAST_FRONT_PANEL_INPUT
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    STAA    <M_INPUT_EVENT_PENDING
 
 _PATCH_NAME_EDIT_ASCII_MODE_ACTIVE:
     RTS
@@ -3417,7 +3463,7 @@ _HANDLER_IRQ_IS_ANALOG_INPUT_EVENT:
 
 INPUT_ANALOG_END:
     LDAA    #INPUT_FINISHED
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    STAA    <M_INPUT_EVENT_PENDING
     JMP     HANDLER_IRQ_EXIT
 
 
@@ -3633,7 +3679,7 @@ _LOAD_MAX_VALUE_TABLE:
     STAA    <M_UP_DOWN_INCREMENT
 
     LDAA    #INPUT_DATA_ENTRY
-    STAA    <M_LAST_FRONT_PANEL_INPUT_ALTERNATE
+    STAA    <M_INPUT_EVENT_PENDING
     STAA    M_LAST_FRONT_PANEL_INPUT
 
     RTS
@@ -5298,8 +5344,8 @@ _BTN_LESS_THAN_8:
     TST     M_INPUT_EVENT_COMES_FROM_SLIDER
     BEQ     MASTER_TUNE_EXIT
 
-; Falls-through to store the master tune setting, and return.
     LDAB    <M_ANALOG_DATA
+; Falls-through to store the master tune setting, and return.
 
 
 ; ==============================================================================
@@ -5312,7 +5358,7 @@ _BTN_LESS_THAN_8:
 ;
 ; ARGUMENTS:
 ; Registers:
-; * ACCB: The value to input into the master tune 'register'.
+; * ACCB: The new master tune value.
 ;
 ; ==============================================================================
 MASTER_TUNE_SET:
@@ -7583,7 +7629,7 @@ JUMP_TO_RELATIVE_OFFSET:
 
 _TEST_IF_END_OF_JUMP_TABLE:
 ; If the current jump table entry number is '0', the end of the jump table has
-; been reached, so exit.
+; been reached.
     TST     1,x
     BEQ     _END_JUMP_TO_RELATIVE_OFFSET
 
