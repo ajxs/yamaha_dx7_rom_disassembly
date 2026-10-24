@@ -13157,12 +13157,12 @@ _READ_RX_BUFFER_ITERATE:
     CMPA    #MIDI_STATUS_ACTIVE_SENSING
     BEQ     _ACTIVE_SENSING
 
-; Is this status the end of a SYSEX MIDI message?
+; Is this a real-time status message?
     CMPA    #MIDI_STATUS_SYSEX_END
     BHI     _PROCEED_TO_NEXT_MESSAGE            ; If A > 0xF7, branch.
 
-; If a non-sysex end, non-active sensing status byte has been received,
-; store it and proceed to processing the next byte.
+; Any other status byte (0x80-0xF7) is stored as the running status, and the
+; data byte count is reset.
     STAA    <M_MIDI_STATUS_BYTE
     CLR     M_MIDI_PROCESSED_DATA_COUNT
 
@@ -13171,7 +13171,7 @@ _PROCEED_TO_NEXT_MESSAGE:
 
 _PROCESS_DATA_BYTE:
 ; Does this status byte represent the end of a SYSEX message?
-; If so, reset, and continue processing the received MIDI data.
+; If so, do nothing, and continue processing the received MIDI data.
     LDAB    <M_MIDI_STATUS_BYTE
     CMPB    #MIDI_STATUS_SYSEX_END
     BEQ     _PROCEED_TO_NEXT_MESSAGE
@@ -13228,7 +13228,6 @@ _NOTE_OFF_STORE_NOTE_KEY:
     STAA    <M_NOTE_KEY
     JSR     MIDI_VOICE_REMOVE
 
-MIDI_RX_CLEAR_COUNT_AND_PROCESS_INCOMING:
     BRA     _CLEAR_AND_REPEAT
 
 _ACTIVE_SENSING:
@@ -13341,7 +13340,7 @@ _CONTROL_CHANGE_MESSAGE_PROCESS:
 ; The following is a table of relative-addressed pointers to the functions
 ; which handle the various MIDI CC events. The first byte is the relative byte
 ; offset, the second byte is the event number.
-; e.g. If the event number was 3, the offet from 0xEC70 to the handler
+; e.g. If the event number was 3, the offset from 0xEC70 to the handler
 ; function is 0x20.
 ; ==============================================================================
     DC.B MIDI_RX_CC_1_MOD_WHEEL - *
@@ -13352,7 +13351,7 @@ _CONTROL_CHANGE_MESSAGE_PROCESS:
     DC.B 3
     DC.B MIDI_RX_CC_4_FOOT_CONTROLLER - *
     DC.B 4
-    DC.B MIDI_RX_CLEAR_COUNT_AND_PROCESS_INCOMING - *
+    DC.B MIDI_RX_CC_5_PORTAMENTO_TIME - *
     DC.B 5
     DC.B MIDI_RX_CC_6_FN_DATA_INPUT - *
     DC.B 6
@@ -13541,7 +13540,7 @@ MIDI_RX_CC_127_MODE_POLY:
 ; LOCATION: 0xECE6
 ;
 ; DESCRIPTION:
-; Handles a MIDI Control Code message with a type of '127'.
+; Handles a MIDI Control Code message with a type of '5'.
 ; This sets the synth's portamento time.
 ;
 ; ==============================================================================
@@ -13709,7 +13708,7 @@ _TEST_IF_PROGRAM_CHANGE_MESSAGE:
 ; LOCATION: 0xED47
 ;
 ; DESCRIPTION:
-; Changes to patch number in ACCA.
+; Changes to the patch number in ACCA.
 ; First checks whether the patch is >= 32, which indicates whether this is
 ; internal, vs cartridge memory.
 ; It then performs ACCA % 32 to get the relative patch number, and then
@@ -13801,8 +13800,8 @@ _SYSEX_DATA_COUNT_CHECK:
     TST     M_MIDI_PROCESSED_DATA_COUNT
     BNE     _TEST_IF_MSG_COUNT_1
 
-; If we've received a MIDI SYSEX header, and the next byte is not the correct
-; identifier for the DX7, exit.
+; If we've received a MIDI SYSEX header, and the next byte is not the Yamaha
+; manufacturer ID, exit.
     CMPA    #MIDI_SYSEX_MANUFACTURER_ID
     BNE     _SYSEX_FORCE_END
 
@@ -13862,7 +13861,7 @@ _SET_SUBSTATUS_AND_EXIT:
     RTS
 
 _TEST_IF_MSG_COUNT_2:
-; Are there two data byte already processed?
+; Are there two data bytes already processed?
     CMPB    #2
     BNE     _TEST_IF_MSG_COUNT_3
 
@@ -13923,7 +13922,7 @@ _TEST_IF_SYSEX_PARAM_VOICE:
     BRA     _SYSEX_PARAM_STORE
 
 _TEST_IF_MSG_COUNT_3:
-; Are there three data byte already processed?
+; Are there three data bytes already processed?
     CMPB    #3
     BNE     _TEST_IF_MSG_COUNT_4
 
@@ -13961,7 +13960,7 @@ _GET_UPPER_SYSEX_PARAM_NUM:
     BRA     _INCREMENT_AND_EXIT
 
 _TEST_IF_MSG_COUNT_4:
-; Are there four data byte already processed?
+; Are there four data bytes already processed?
     CMPB    #4
     BNE     _TEST_IF_MSG_COUNT_5
 
@@ -14005,11 +14004,10 @@ _SYSEX_RX_START:
 
 _TEST_IF_SYSEX_FUNCTION_DATA:
 ; If the function group is set to 2 (Function Parameter), and the parameter
-; is less-than or equal to 42, this means that a switch event is being
-; transmitted.
+; is less-than 42, this means that a switch event is being transmitted.
     LDAB    <M_MIDI_INCOMING_DATA
     CMPB    #42
-    BCS     _TEST_IF_SYSEX_PANEL_MESSAGE               ; If B <= 42, branch.
+    BCS     _TEST_IF_SYSEX_PANEL_MESSAGE               ; If B < 42, branch.
 
     BRA     _SYSEX_FUNCTION_DATA
 
@@ -14022,7 +14020,7 @@ _SYSEX_NOT_ENABLED:
     JMP     _SYSEX_FORCE_END
 
 _TEST_IF_MSG_COUNT_5:
-; Are there five data byte already processed?
+; Are there five data bytes already processed?
     CMPB    #5
     BNE     _RESET_AND_EXIT
 
@@ -14059,7 +14057,7 @@ _SYSEX_VOICE_DATA:
     JSR     UI_PRINT_MAIN
     JSR     LED_PRINT_PATCH_NUMBER
 
-_ENABLE_IRQ_AND_EXIT:
+_SET_SUB_CPU_READY_AND_EXIT:
 ; Set CPU line 20 high to indicate that the main CPU is ready to receive data.
 ; Refer to page 23 in the technical analysis.
     LDAA    #1
@@ -14077,19 +14075,22 @@ _TEST_IF_SYSEX_PANEL_MESSAGE:
 ; the PREVIOUS byte.
 ; 0xE1 = Key number.
 ; ACCA = Key state: 00 for RELEASE, 0x7F for DOWN.
-; Disable IRQ.
+
+; Set the P20 line low to indicate that the main CPU is not ready to
+; receive data from the sub-CPU.
     CLR     IO_PORT_2_DATA
+
     TSTA
     BEQ     _SYSEX_FRONT_PANEL_BUTTON_RELEASED
 
     LDAA    <M_MIDI_INCOMING_DATA
     JSR     INPUT_FRONT_PANEL_BUTTON_PRESSED
-    BRA     _ENABLE_IRQ_AND_EXIT
+    BRA     _SET_SUB_CPU_READY_AND_EXIT
 
 _SYSEX_FRONT_PANEL_BUTTON_RELEASED:
     LDAA    <M_MIDI_INCOMING_DATA
     JSR     INPUT_FRONT_PANEL_BUTTON_RELEASED
-    BRA     _ENABLE_IRQ_AND_EXIT
+    BRA     _SET_SUB_CPU_READY_AND_EXIT
 
 _SYSEX_FUNCTION_DATA:
 ; Parse the SYSEX function data.
@@ -14097,9 +14098,11 @@ _SYSEX_FUNCTION_DATA:
 ; Refer to this site for the function parameter number reference:
 ; https://homepages.abdn.ac.uk/d.j.benson/pages/dx7/sysex-format.txt
     TST     M_MIDI_SYS_INFO_AVAIL
-    BEQ     _SYSEX_ENABLE_IRQ_AND_EXIT
+    BEQ     _SYSEX_SET_SUB_CPU_READY_AND_EXIT
 
-    CLR     IO_PORT_2_DATA                      ; Disable IRQ.
+; Set the P20 line low to indicate that the main CPU is not ready to
+; receive data from the sub-CPU.
+    CLR     IO_PORT_2_DATA
     LDAB    <M_MIDI_INCOMING_DATA
     SUBB    #64
     ASLB
@@ -14112,8 +14115,8 @@ _SYSEX_FUNCTION_DATA:
     JSR     MOD_PROCESS_INPUT_SOURCES
     JSR     UI_PRINT_MAIN
 
-_SYSEX_ENABLE_IRQ_AND_EXIT:
-    BRA     _ENABLE_IRQ_AND_EXIT
+_SYSEX_SET_SUB_CPU_READY_AND_EXIT:
+    BRA     _SET_SUB_CPU_READY_AND_EXIT
 
 _TEST_IF_SYSEX_BULK_DATA:
 ; Check whether this SYSEX message is a bulk voice data transfer.
@@ -14174,7 +14177,7 @@ _SYSEX_EXIT:
 ; Re-enable timer IRQ.
     LDAB    #TIMER_CTRL_EOCI
     STAB    <TIMER_CTRL_STATUS
-    BRA     _SYSEX_ENABLE_IRQ_AND_EXIT
+    BRA     _SYSEX_SET_SUB_CPU_READY_AND_EXIT
 
 
 ; ==============================================================================
@@ -14296,7 +14299,7 @@ _SYSEX_PERF_SUCCESS:
     JSR     VOICE_RESET_EVENT_AND_PITCH_BUFFERS
 
 _SYSEX_PERF_EXIT:
-    JMP     _ENABLE_IRQ_AND_EXIT
+    JMP     _SET_SUB_CPU_READY_AND_EXIT
 
 
 ; ==============================================================================
