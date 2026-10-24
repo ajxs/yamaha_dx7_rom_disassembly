@@ -72,7 +72,7 @@ P_OPS_ALG_FDBK:                           equ  $2805
 ; Used to send the 3-bit analog volume value to the DAC.
 P_DAC:                                    equ  $280A
 ; A write to this address signals the sub-CPU that the data has been received.
-; As per the Yamah DX7 Technical Analysis document, it doesn't matter what
+; As per the Yamaha DX7 Technical Analysis document, it doesn't matter what
 ; data is written to this address.
 P_ACEPT:                                  equ  $280C
 P_LED1:                                   equ  $280E
@@ -3461,26 +3461,25 @@ _HANDLER_IRQ_IS_ANALOG_INPUT_EVENT:
     JSR     JUMP_TO_RELATIVE_OFFSET
 
 ; ==============================================================================
-; The following is a table of relative-addressed pointers to
-; the functions which handle the various analog input events.
-; The first byte is the relative byte offset, the second byte is
-; the event number.
-; e.g. If the event number was 3, the offet from 0xC9BE to the handler
+; The first byte is the relative byte offset, the second byte is the entry
+; number. 'JUMP_TO_RELATIVE_OFFSET' selects the first entry whose number is
+; greater than the source in ACCB, so source 'n' selects entry 'n + 1'.
+; e.g. For source 2 (the mod wheel), the offset from 0xC9BE to the handler
 ; function is 0x1E.
 ; ==============================================================================
-    DC.B INPUT_ANALOG_SRC_1_SLIDER - *
+    DC.B INPUT_ANALOG_SRC_0_SLIDER - *
     DC.B 1
-    DC.B INPUT_ANALOG_SRC_2_PITCH_BEND - *
+    DC.B INPUT_ANALOG_SRC_1_PITCH_BEND - *
     DC.B 2
-    DC.B INPUT_ANALOG_SRC_3_MOD_WHEEL - *
+    DC.B INPUT_ANALOG_SRC_2_MOD_WHEEL - *
     DC.B 3
-    DC.B INPUT_ANALOG_SRC_4_FOOT_CONTROLLER - *
+    DC.B INPUT_ANALOG_SRC_3_FOOT_CONTROLLER - *
     DC.B 4
-    DC.B INPUT_ANALOG_SRC_5_BREATH_CONTROLLER - *
+    DC.B INPUT_ANALOG_SRC_4_BREATH_CONTROLLER - *
     DC.B 5
-    DC.B INPUT_ANALOG_SRC_6_AFTERTOUCH - *
+    DC.B INPUT_ANALOG_SRC_5_AFTERTOUCH - *
     DC.B 6
-    DC.B INPUT_ANALOG_SRC_7_BATTERY - *
+    DC.B INPUT_ANALOG_SRC_6_BATTERY - *
     DC.B 7
     DC.B INPUT_ANALOG_END - *
     DC.B 0
@@ -3493,18 +3492,18 @@ INPUT_ANALOG_END:
 
 
 ; ==============================================================================
-; INPUT_ANALOG_SRC_2
+; INPUT_ANALOG_SRC_1_PITCH_BEND
 ; ==============================================================================
 ; LOCATION: 0xC9D1
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '2': The synth's pitch bend wheel.
+; is '1': The synth's pitch bend wheel.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
 ; ==============================================================================
-INPUT_ANALOG_SRC_2_PITCH_BEND:
+INPUT_ANALOG_SRC_1_PITCH_BEND:
     STAA    M_PITCH_BEND_INPUT
     JSR     MIDI_TX_PITCH_BEND
     JSR     PITCH_BEND_PARSE
@@ -3512,18 +3511,18 @@ INPUT_ANALOG_SRC_2_PITCH_BEND:
 
 
 ; ==============================================================================
-; INPUT_ANALOG_SRC_3
+; INPUT_ANALOG_SRC_2_MOD_WHEEL
 ; ==============================================================================
 ; LOCATION: 0xC9DC
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '3': the synth's mod wheel.
+; is '2': The synth's mod wheel.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
 ; ==============================================================================
-INPUT_ANALOG_SRC_3_MOD_WHEEL:
+INPUT_ANALOG_SRC_2_MOD_WHEEL:
     STAA    M_MOD_WHEEL_ANALOG_INPUT
     JSR     MIDI_TX_CC_1_MOD_WHEEL
 
@@ -3550,90 +3549,90 @@ _END_INPUT_ANALOG_UPDATE_MODULATION:
 
 
 ; ==============================================================================
-; INPUT_ANALOG_SRC_4
+; INPUT_ANALOG_SRC_3_FOOT_CONTROLLER
 ; ==============================================================================
 ; LOCATION: 0xC9EC
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '4': The synth's foot control input.
+; is '3': The synth's foot control input.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
 ; ==============================================================================
-INPUT_ANALOG_SRC_4_FOOT_CONTROLLER:
+INPUT_ANALOG_SRC_3_FOOT_CONTROLLER:
     STAA    M_FOOT_CTRL_ANALOG_INPUT
     JSR     MIDI_TX_CC_4_FOOT_CONTROLLER
     BRA     INPUT_ANALOG_UPDATE_MODULATION
 
 
 ; ==============================================================================
-; INPUT_ANALOG_SRC_5
+; INPUT_ANALOG_SRC_4_BREATH_CONTROLLER
 ; ==============================================================================
 ; LOCATION: 0xC9F4
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '5': The synth's breath control input.
+; is '4': The synth's breath control input.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
 ; ==============================================================================
-INPUT_ANALOG_SRC_5_BREATH_CONTROLLER:
+INPUT_ANALOG_SRC_4_BREATH_CONTROLLER:
     STAA    M_BRTH_CTRL_ANALOG_INPUT
     JSR     MIDI_TX_CC_2_BREATH_CONTROLLER
     BRA     INPUT_ANALOG_UPDATE_MODULATION
 
 
 ; ==============================================================================
-; INPUT_ANALOG_SRC_6
+; INPUT_ANALOG_SRC_5_AFTERTOUCH
 ; ==============================================================================
 ; LOCATION: 0xC9FC
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '6': The synth's keys' aftertouch.
+; is '5': The synth's keys' aftertouch.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
 ; ==============================================================================
-INPUT_ANALOG_SRC_6_AFTERTOUCH:
+INPUT_ANALOG_SRC_5_AFTERTOUCH:
     STAA    M_AFTERTOUCH_ANALOG_INPUT
     JSR     MIDI_TX_AFTERTOUCH
     BRA     INPUT_ANALOG_UPDATE_MODULATION
 
 
 ; ==============================================================================
-; INPUT_ANALOG_SRC_7
+; INPUT_ANALOG_SRC_6_BATTERY
 ; ==============================================================================
 ; LOCATION: 0xCA04
 ;
 ; DESCRIPTION:
 ; Input handler function for when the source of a particular analog event
-; is '7': The synth's battery voltage.
+; is '6': The synth's battery voltage.
 ; This is where the battery voltage is updated.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
 ; ==============================================================================
-INPUT_ANALOG_SRC_7_BATTERY:
+INPUT_ANALOG_SRC_6_BATTERY:
     STAA    M_BATTERY_VOLTAGE
     BRA     INPUT_ANALOG_END
 
 
 ; ==============================================================================
-; INPUT_ANALOG_SRC_1
+; INPUT_ANALOG_SRC_0_SLIDER
 ; ==============================================================================
 ; LOCATION: 0xCA09
 ;
 ; DESCRIPTION:
-; Handles an analog input event originating from
-; source 1 (the synth's front-panel slider).
+; Input handler function for when the source of a particular analog event
+; is '0': The synth's front-panel slider.
 ; This function is reached via the 'JUMP_TO_RELATIVE_OFFSET' subroutine,
 ; called from the main IRQ handler.
 ;
 ; ==============================================================================
-INPUT_ANALOG_SRC_1_SLIDER:
+INPUT_ANALOG_SRC_0_SLIDER:
     JSR     MIDI_TX_CC_6_SLIDER
     JSR     INPUT_SLIDER
     JMP     HANDLER_IRQ_EXIT
