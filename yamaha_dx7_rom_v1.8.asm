@@ -2789,17 +2789,18 @@ MAIN_LOOP:
 ; LOCATION: 0xC71B
 ;
 ; DESCRIPTION:
-; Handles the button input recorded in the interrupt function.
+; Handles the front-panel input recorded in the interrupt function.
 ;
 ; ==============================================================================
 MAIN_PROCESS_INPUT:
-; Check whether there is a button event that needs processing.
+; Check whether there is an input event that needs processing.
 ; If the value is '0', or above '43', then the last physical user action was
-; something other than a button press.
+; something other than a front-panel input.
 ; In this case, return.
     LDAA    <M_INPUT_EVENT_PENDING
     BEQ     _END_MAIN_PROCESS_INPUT
 
+; Clear the pending input event, so it's only processed once.
     CLR     M_INPUT_EVENT_PENDING
     CMPA    #INPUT_DATA_ENTRY
     BHI     _END_MAIN_PROCESS_INPUT             ; If A > 43, branch.
@@ -2829,6 +2830,8 @@ _TEST_IF_EDITING_PATCH_NAME:
 
 ; Test if the 'Function' button is being pressed.
 ; If so, test whether the diagnostic mode button combination is active.
+; While the 'Function' button is held, input is only passed to the test-mode
+; combination check, and isn't processed any further.
     TST     M_BTN_FUNC_STATE
     BNE     _MAIN_PROCESS_INPUT_FUNCTION_BUTTON_DOWN
 
@@ -2891,11 +2894,13 @@ _END_MAIN_PROCESS_INPUT:
     RTS
 
 _BTN_MODE_EDIT:
+; This BNE statement can never actually be triggered, because this code can
+; only be reached via a BEQ statement.
+    BNE     LCD_SET_CURSOR_BLINK_OFF
+
 ; The following sequence checks the various scenarios in which the LCD
 ; blinking effect should NOT be turned off.
 ; The following sequence falls-through to turn the LCD blink off.
-    BNE     LCD_SET_CURSOR_BLINK_OFF
-
     CMPB    #BUTTON_6
     BLS     _MAIN_PROCESS_INPUT_END
 
@@ -2910,6 +2915,7 @@ _BTN_MODE_EDIT:
 
     CMPB    #BUTTON_FUNCTION
     BHI     _MAIN_PROCESS_INPUT_END
+; Falls-through below.
 
 ; ==============================================================================
 ; LCD_SET_CURSOR_BLINK_OFF
@@ -2952,8 +2958,8 @@ TABLE_INPUT_MODE_PTR_TABLES:
 
 ; ==============================================================================
 ; 'Play Mode' (Mode 0) button function pointers.
-; This table starts at index 31 (button 32), since in play mode buttons 0-31
-; load a patch from memory
+; This table starts at index 31 (button 32), since in play mode buttons 1-32
+; load a patch from memory.
 ; ==============================================================================
 TABLE_INPUT_MODE_PLAY:
     DC.W PATCH_PROGRAM_CHANGE
@@ -4417,8 +4423,8 @@ _RESET_SUB_FN_FLAG:
 ;
 ; ==============================================================================
 PATCH_PROGRAM_CHANGE:
-    JSR     MIDI_TX_PROGRAM_CHANGE              ; Falls-through to patch r/w.
-
+    JSR     MIDI_TX_PROGRAM_CHANGE
+; Falls-through below.
 
 ; ==============================================================================
 ; PATCH_READ_WRITE
