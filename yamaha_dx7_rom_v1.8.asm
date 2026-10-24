@@ -2091,22 +2091,30 @@ TEST_CRT_WRITE_FAILED:
 ;
 ; DESCRIPTION:
 ; Tests the ability of the synth to read each byte of the cartridge memory.
+; Each byte of the cartridge is checked against a fixed test pattern: The
+; expected value is the sum of the high, and low bytes of the current offset
+; from the start of cartridge memory.
+;  e.g. offset 0x1FF: 0x1 + 0xFF = 0x00.
+; This test requires that the cartridge is pre-written with this pattern.
 ;
 ; ==============================================================================
 TEST_STAGE_6_CRT_READ:
     BSR     TEST_CRT_CHECK_INSERTED
 
     LDX     #P_CRT_START
+
+; ACCD holds a 12-bit offset into the cartridge memory.
     LDD     #0
 
-; Tests the ability to read each byte by setting ACCA to an arbitrary value
-; by adding the LSB of the destination address to the MSB, then loading
-; ACCB from cartridge memory, copying ACCB to ACCA, then testing if the
-; values are equal.
-; If they're not equal, an error message is printed.
 _TEST_STAGE_6_CRT_READ_LOOP:
+; Save the current offset.
     STD     <M_MEMCPY_PTR_DEST
+
+; ACCA = (ACCA + ACCB) % 256: The expected byte value.
     ABA
+
+; Load the byte from the cartridge memory at the current offset, and compare
+; this against the value in ACCA.
     LDAB    0,x
     CBA
     BEQ     _TEST_STAGE_6_READ_BYTE_SUCCESSFUL
@@ -2114,7 +2122,7 @@ _TEST_STAGE_6_CRT_READ_LOOP:
     JMP     TEST_CRT_PRINT_ERROR_MESSAGE
 
 _TEST_STAGE_6_READ_BYTE_SUCCESSFUL:
-; Increment the copy destination, and source pointers.
+; Increment the offset, and read pointer.
     LDD     <M_MEMCPY_PTR_DEST
     ADDD    #1
     INX
