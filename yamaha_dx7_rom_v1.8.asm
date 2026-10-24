@@ -12222,8 +12222,8 @@ HANDLER_SCI:
 ; Branch if Status[ORFE] is set.
     BCS     _HANDLER_SCI_SET_OVERRUN_FRAMING_ERROR
 
-; Checks if Status[TDRE] is clear.
-; If so the serial interface is ready to transmit new data.
+; Branch if Status[TDRE] is set, indicating that the transmit data register
+; is empty, and the serial interface is ready to transmit new data.
     BMI     _HANDLER_SCI_READY_TO_TRANSMIT_DATA
 
     RTI
@@ -12238,8 +12238,9 @@ _HANDLER_SCI_STORE_INCOMING_DATA:
     STAA    0,x
     INX
 
-; Reset the RX data ring buffer if it has reached the end.
-    CPX     #M_MIDI_TX_DATA_PRESENT
+; If the write pointer has reached the end of the RX buffer, wrap it around to
+; the start.
+    CPX     #(M_MIDI_BUFFER_RX + MIDI_BUFFER_RX_SIZE)
     BNE     _HANDLER_SCI_HAS_BUFFER_OVERFLOWED
 
     LDX     #M_MIDI_BUFFER_RX
@@ -12272,7 +12273,7 @@ _HANDLER_SCI_READY_TO_TRANSMIT_DATA:
 
 ; Check whether the read pointer has reached the end of the MIDI TX buffer,
 ; if so, the read pointer is reset to the start.
-    CPX     #M_MIDI_BUFFER_RX
+    CPX     #(M_MIDI_BUFFER_TX + MIDI_BUFFER_TX_SIZE)
     BNE     _END_HANDLER_SCI
 
     LDX     #M_MIDI_BUFFER_TX
@@ -12282,6 +12283,8 @@ _END_HANDLER_SCI:
     RTI
 
 _HANDLER_SCI_TX_BUFFER_EMPTY:
+; This disables the TX interrupt.
+; This is re-enabled in the MIDI_TX routine when new data is available.
     LDAA    #(SCI_CTRL_TE | SCI_CTRL_RE | SCI_CTRL_RIE | SCI_CTRL_TDRE)
     STAA    <SCI_CTRL_STATUS
     CLR     M_MIDI_TX_DATA_PRESENT
