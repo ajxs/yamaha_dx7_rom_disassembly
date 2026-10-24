@@ -3903,6 +3903,8 @@ RESTORE_IRQ_AND_EXIT:
 RESTORE_IRQ_STATUS_FROM_STACK:
     PULA
     STAA    <TIMER_CTRL_STATUS
+
+; Restore the sub-CPU ready status.
     PULA
     STAA    <IO_PORT_2_DATA
     RTS
@@ -4498,9 +4500,10 @@ _PATCH_READ_WRITE_SUCCESS:
 
 _END_PATCH_READ_WRITE:
 ; Restore the saved timer control register values.
-; Restore the sub-CPU ready status.
     PULB
     STAB    <TIMER_CTRL_STATUS
+
+; Restore the sub-CPU ready status.
     PULB
     STAB    <IO_PORT_2_DATA
     RTS
@@ -4569,6 +4572,8 @@ _WRITE_SELECTED_CRT:
 
     PULB
     STAB    <TIMER_CTRL_STATUS
+
+; Restore the sub-CPU ready status.
     PULB
     STAB    <IO_PORT_2_DATA
     JMP     CRT_FORMAT_CONFLICT
@@ -4936,9 +4941,11 @@ _EDIT_VALUE:
     STAA    M_PATCH_CURRENT_MODIFIED_FLAG
     JSR     LED_PRINT_PATCH_NUMBER
 
-; Restore the timer-interrupt, and sub-CPU ready status.
+; Restore the saved timer control register values.
     PULA
     STAA    <TIMER_CTRL_STATUS
+
+; Restore the sub-CPU ready status.
     PULA
     STAA    <IO_PORT_2_DATA
     RTS
@@ -5412,10 +5419,14 @@ BTN_YES_NO_INC_DEC:
     CMPB    #1
     BNE     BTN_YES_NO_END
 
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
+
     JSR     VOICE_RESET
+; Restore the sub-CPU ready status.
     PULA
     STAA    <IO_PORT_2_DATA
 
@@ -11203,10 +11214,13 @@ _PRINT_PATCH_NUMBER_AND_EXIT:
 ;
 ; ==============================================================================
 MIDI_ACTIVE_SENSING_STOP:
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
     JSR     MIDI_DEACTIVATE_ALL_VOICES
+; Restore the sub-CPU ready status.
     PULA
     STAA    <IO_PORT_2_DATA
     RTS
@@ -11215,6 +11229,8 @@ MIDI_ACTIVE_SENSING_STOP:
 ; ==============================================================================
 ; PORTA_PROCESS
 ; ==============================================================================
+; LOCATION: 0xE4EC
+;
 ; DESCRIPTION:
 ; This subroutine is where the current portamento, and glissando pitches for
 ; each of the synth's voices are updated, and loaded to the EGS chip.
@@ -11223,9 +11239,11 @@ MIDI_ACTIVE_SENSING_STOP:
 ;
 ; ==============================================================================
 PORTA_PROCESS:
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
-    CLR     IO_PORT_2_DATA                      ; Disable IRQ.
+    CLR     IO_PORT_2_DATA
     JSR     DELAY
 
 ; This flag acts as a 'toggle' switch to control which voices are processed.
@@ -12498,9 +12516,11 @@ MIDI_TX_SYSEX_DUMP_EDIT_BUFFER:
     TST     M_MIDI_PROCESSED_DATA_COUNT
     BNE     _END_MIDI_SYSEX_DUMP_CURRENT_VOICE
 
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
-    CLR     IO_PORT_2_DATA                      ; Disable IRQ.
+    CLR     IO_PORT_2_DATA
     JSR     DELAY
     LDAB    #155
     STAB    <$E5
@@ -12582,9 +12602,11 @@ MIDI_TX_SYSEX_HEADER:
 ;
 ; ==============================================================================
 MIDI_TX_SYSEX_DUMP_BULK:
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
-    CLR     IO_PORT_2_DATA                      ; Disable IRQ.
+    CLR     IO_PORT_2_DATA
     JSR     DELAY
     LDD     #$1000
     STD     M_MIDI_SYSEX_DATA_COUNTER
@@ -12668,9 +12690,11 @@ _SEND_SYSEX:
 ;
 ; ==============================================================================
 MIDI_TX_SYSEX_FN_PARAM:
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
-    CLR     IO_PORT_2_DATA                      ; Disable IRQ.
+    CLR     IO_PORT_2_DATA
     JSR     DELAY
 
 ; If the synth is currently processing MIDI input, exit.
@@ -12709,9 +12733,11 @@ MIDI_TX_SYSEX_FN_PARAM:
 ;
 ; ==============================================================================
 MIDI_TX_SYSEX_PARAM_CHG:
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
-    CLR     IO_PORT_2_DATA                      ; Disable IRQ.
+    CLR     IO_PORT_2_DATA
     JSR     DELAY
 
 ; If the synth is currently processing MIDI input, exit.
@@ -12760,7 +12786,8 @@ MIDI_TX_SYSEX_PARAM_CHG:
 ;
 ; ==============================================================================
 MIDI_TX_ACTIVE_SENSING:
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
@@ -12847,7 +12874,8 @@ MIDI_TX_CC_6_SLIDER:
 ;
 ; ==============================================================================
 MIDI_TX_CC_65_PORTAMENTO:
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
@@ -12873,7 +12901,8 @@ MIDI_TX_CC_65_PORTAMENTO:
 ;
 ; ==============================================================================
 MIDI_TX_CC_64_SUSTAIN:
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
@@ -12901,7 +12930,8 @@ MIDI_TX_CC_AND_EXIT:
 ;
 ; ==============================================================================
 MIDI_TX_CC_96_97_DATA_INC_DEC:
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
@@ -13020,7 +13050,8 @@ MIDI_TX_PROGRAM_CHANGE:
     TST     M_MIDI_SYS_INFO_AVAIL
     BNE     _END_SYS_INFO_UNAVAIL
 
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAA    <IO_PORT_2_DATA
     PSHA
     CLR     IO_PORT_2_DATA
@@ -13184,7 +13215,8 @@ _TEST_IF_DATA_RX_CHANNEL_CORRECT:
 
 _NOTE_OFF:
 ; Process a 'Note Off' MIDI message.
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAB    <IO_PORT_2_DATA
     PSHB
     CLR     IO_PORT_2_DATA
@@ -13225,7 +13257,8 @@ _TEST_IF_NOTE_ON_MESSAGE:
 
 _NOTE_ON:
 ; Process a 'Note on' MIDI message.
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAB    <IO_PORT_2_DATA
     PSHB
     CLR     IO_PORT_2_DATA
@@ -13292,7 +13325,8 @@ TABLE_MIDI_VEL:
     DC.B $A, 8, 6, 4, 2, 1, 0
 
 _CONTROL_CHANGE_MESSAGE_PROCESS:
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAB    <IO_PORT_2_DATA
     PSHB
     CLR     IO_PORT_2_DATA
@@ -13729,7 +13763,8 @@ _TEST_IF_PITCH_BEND_MESSAGE:
     TST     M_MIDI_PROCESSED_DATA_COUNT
     BEQ     _INCREMENT_DATA_COUNT
 
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAB    <IO_PORT_2_DATA
     PSHB
     CLR     IO_PORT_2_DATA
@@ -13745,7 +13780,8 @@ _TEST_IF_AFTERTOUCH_MESSAGE:
     BNE     _UNKNOWN_MIDI_STATUS
 
 ; Process an 'Aftertouch' MIDI message.
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAB    <IO_PORT_2_DATA
     PSHB
     CLR     IO_PORT_2_DATA
@@ -14117,7 +14153,8 @@ _SYSEX_PATCH_SUCCESS:
     LDAA    #EDITED_PATCH_IN_WORKING
     STAA    M_PATCH_CURRENT_MODIFIED_FLAG
 
-; Disable transmission from the sub-CPU.
+; Save the P20 line (sub-CPU communication 'ready' status) to the stack, and
+; clear it to indicate the CPU isn't ready to receive data from the sub-CPU.
     LDAB    <IO_PORT_2_DATA
     PSHB
     CLR     IO_PORT_2_DATA
