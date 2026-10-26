@@ -418,14 +418,18 @@ M_EG_BIAS_TOTAL_RANGE:                    equ  $BA
 M_VOICE_FREQ_GLISS_CURRENT:               equ  $BB
 M_PORTA_PROCESS_LOOP_IDX:                 equ  $BD
 
-; This register is used during portamento processing to store the currently
-; processed voice's portamento target frequency.
+; This variable is used during portamento processing. It first holds the
+; currently processed voice's target frequency, which the new portamento
+; frequency is clamped to. It's then overwritten with the new portamento
+; frequency.
+; If glissando is enabled, this is the frequency that the glissando
+; frequency steps towards, otherwise the new overwritten value is unused.
 M_VOICE_FREQ_PORTA_FINAL:                 equ  $BE
 M_VOICE_FREQ_TARGET_PTR:                  equ  $C0
 M_VOICE_FREQ_PORTA_PTR:                   equ  $C2
 M_VOICE_PITCH_EG_CURR_LVL_PTR:            equ  $C4
 
-; This register is used to store the portamento frequency increment if the
+; This variable is used to store the portamento frequency increment if the
 ; synth is in 'portamento mode', or alternatively the MSB of the next
 ; glissando frequency if the synth is in 'glissando mode'.
 M_VOICE_FREQ_PORTA_INCREMENT:             equ  $C6
@@ -11307,11 +11311,11 @@ _PORTA_PROCESS_VOICE_LOOP:
 
 ; Check whether this voice's current portamento pitch is above or below
 ; the voice's target pitch.
-; If *(0xVOICE_PITCH_PORTA[B]) - *(VOICE_PITCH_TARGET[B]) < 0, branch.
+; If *(M_VOICE_FREQ_PORTAMENTO[B]) - *(M_VOICE_PITCH_TARGET[B]) < 0, branch.
     SUBD    <M_VOICE_FREQ_PORTA_FINAL
     BMI     _PORTA_PROCESS_FREQ_BELOW_TARGET
 
-; If the current glissando frequency is above the target frequency,
+; If the current portamento frequency is above the target frequency,
 ; calculate the portamento frequency decrement, and subtract it from the
 ; current frequency.
     LDAB    <M_PORTA_RATE_INCREMENT
@@ -11348,6 +11352,9 @@ _PORTA_PROCESS_GET_PITCH_DECREMENT:
     LDD     <M_VOICE_FREQ_PORTA_FINAL
 
 _PORTA_PROCESS_STORE_FREQ_DOWN:
+; Store the new portamento frequency. This also overwrites the target
+; frequency, so the glissando calculations below use the new portamento
+; frequency instead.
     LDX     <M_VOICE_FREQ_PORTA_PTR
     STD     0,x
     STD     <M_VOICE_FREQ_PORTA_FINAL
@@ -11370,25 +11377,22 @@ _GLISSANDO_ON:
     LDD     0,x
     STD     <M_VOICE_FREQ_GLISS_CURRENT
 
-; Subtract the current glissando frequency from the final portamento target
-; frequency to determine whether it is currently ABOVE, or BELOW the
-; target pitch.
+; Subtract the voice's new portamento frequency from the current glissando
+; frequency, to check whether the glissando frequency is ABOVE, or BELOW it.
     SUBD    <M_VOICE_FREQ_PORTA_FINAL
     BMI     _PORTA_PROCESS_GLISS_PITCH_BELOW
 
-; Glissando frequency is above the final frequency.
-; This magic number most likely represents the minimum frequency step
-; made in the portamento pitch transition.
-; The following lines test whether the difference in target, and current
-; frequencies are below this threshold.
+; The glissando frequency is above the new portamento frequency.
+; This magic number most likely represents the glissando step size.
+; The following lines test whether the glissando frequency is at least one
+; step above the portamento frequency.
 ; Most likely this number represents a semitone:
 ;  0x154 = (85 << 2).
 ;  85 * 12 = 1020.
     SUBD    #$154
 
-; If the difference between the glissando TARGET, and CURRENT frequencies
-; is less than the minimum threshold, no change is made to the current
-; glissando frequency.
+; If the glissando frequency is less than a semitone away from the new
+; portamento frequency, no change is made to the current glissando frequency.
     BPL     _MORE_THAN_HALF_STEP
 
     JMP     _LOAD_GLISS_PITCH
@@ -11402,7 +11406,7 @@ _MORE_THAN_HALF_STEP:
     BRA     _PORTA_PROCESS_GET_GLISS_FREQ_NEXT
 
 _PORTA_PROCESS_FREQ_BELOW_TARGET:
-; If the current glissando pitch is below the target pitch, calculate
+; If the current portamento pitch is below the target pitch, calculate
 ; the portamento pitch increment, and add it to the current pitch.
     LDAB    <M_PORTA_RATE_INCREMENT
 
@@ -11422,7 +11426,7 @@ _PORTA_PROCESS_BELOW_GLISSANDO_OFF:
 _PORTA_PROCESS_GET_PITCH_INCREMENT:
     MUL
 
-; Add the portamento frequency decrement to this voice's current
+; Add the portamento frequency increment to this voice's current
 ; portamento frequency.
     LDX     <M_VOICE_FREQ_PORTA_PTR
     ADDD    0,x
@@ -11437,6 +11441,9 @@ _PORTA_PROCESS_GET_PITCH_INCREMENT:
     LDD     <M_VOICE_FREQ_PORTA_FINAL
 
 _PORTA_PROCESS_STORE_FREQ_UP:
+; Store the new portamento frequency. This also overwrites the target
+; frequency, so the glissando calculations below use the new portamento
+; frequency instead.
     LDX     <M_VOICE_FREQ_PORTA_PTR
     STD     0,x
     STD     <M_VOICE_FREQ_PORTA_FINAL
@@ -11448,8 +11455,8 @@ _PORTA_PROCESS_STORE_FREQ_UP:
     TST     M_PORTA_GLISS_ENABLED
     BEQ     _PORTA_PROCESS_ADD_PITCH_EG_LVL
 
-; The following lines test whether the difference in target, and current
-; frequencies are below the minimum threshold.
+; The following lines test whether the glissando frequency is at least one
+; semitone below the new portamento frequency.
 
 _PORTA_PROCESS_GLISS_PITCH_BELOW:
     LDX     <M_VOICE_FREQ_GLISS_PTR
@@ -11459,9 +11466,8 @@ _PORTA_PROCESS_GLISS_PITCH_BELOW:
     SUBD    0,x
     SUBD    #$154
 
-; If the difference between the glissando TARGET, and CURRENT frequencies
-; is less than the minimum threshold, no change is made to the current
-; glissando frequency.
+; If the glissando frequency is less than a semitone away from the new
+; portamento frequency, no change is made to the current glissando frequency.
     BMI     _LOAD_GLISS_PITCH
 
 ; Reload the current glissando pitch.
@@ -11504,7 +11510,7 @@ _GET_GLISSANDO_PITCH_LSB:
     STAA    <M_VOICE_FREQ_PORTA_NEXT_LSB
 
 ; Reload the newly calculated NEXT glissando frequency, and store it in
-; the final glissando frequency register which will be loaded to the EGS.
+; the glissando frequency array. This value will be written to the EGS.
     LDD     <M_VOICE_FREQ_PORTA_INCREMENT
     STD     0,x
     BRA     _PORTA_PROCESS_INCREMENT_GLISS_PTR
@@ -11513,7 +11519,7 @@ _LOAD_GLISS_PITCH:
     LDD     <M_VOICE_FREQ_GLISS_CURRENT
 
 _PORTA_PROCESS_INCREMENT_GLISS_PTR:
-; Increment the voice pointers.
+; Increment the voice pointer.
     LDX     <M_VOICE_FREQ_GLISS_PTR
     INX
     INX
@@ -11552,8 +11558,9 @@ _PORTA_PROCESS_INCREMENT_PITCH_EG_LVL_PTR:
     STX     <M_VOICE_FREQ_TARGET_PTR
 
 ; Decrement the loop index.
+; If the loop index is zero, exit.
     DEC     M_PORTA_PROCESS_LOOP_IDX
-    BEQ     _END_PORTA_PROCESS                  ; If *(0xBD) > 0, loop.
+    BEQ     _END_PORTA_PROCESS
 
     JMP     _PORTA_PROCESS_VOICE_LOOP
 
