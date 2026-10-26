@@ -5343,7 +5343,7 @@ _TEST_IF_BTN_LESS_THAN_8:
     CMPB    #BUTTON_12
     BEQ     BTN_YES_NO_END
 
-; Is this button 12?
+; Is this button 13?
     CMPB    #BUTTON_13
     BEQ     BTN_YES_NO_END
 
@@ -5362,8 +5362,11 @@ _BTN_9_TO_11:
 ; ==============================================================================
 ; INPUT_UNKNOWN
 ; ==============================================================================
+; LOCATION: 0xD000
+;
 ; DESCRIPTION:
 ; This subroutine does not appear to be referenced, or called from anywhere.
+; This code is unreachable.
 ;
 ; ==============================================================================
 INPUT_UNKNOWN:
